@@ -1,0 +1,60 @@
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+header {
+  margin-bottom: 16px;
+}
+
+nav {
+  margin-bottom: 16px;
+}
+
+nav button {
+  margin-right: 6px;
+  margin-bottom: 6px;
+}
+
+nav button.active {
+  font-weight: bold;
+}
+
+section,
+form {
+  margin-bottom: 18px;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+input,
+select,
+textarea,
+button {
+  margin-top: 4px;
+}
+
+textarea {
+  width: 320px;
+  min-height: 60px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+th,
+td {
+  border: 1px solid #999;
+  padding: 6px;
+  text-align: left;
+}
+
+.message {
+  font-weight: bold;
+}
