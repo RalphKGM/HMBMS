@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
+import { isSupabaseConfigured } from './lib/supabase'
+import { loadAppData, saveAppData } from './lib/dataStore'
 import './App.css'
-
-const STORAGE_KEY = 'hmbms-react-data'
 
 const seedData = {
   users: [
@@ -62,11 +62,6 @@ const pages = [
   'SMS Log',
 ]
 
-function loadData() {
-  const saved = localStorage.getItem(STORAGE_KEY)
-  return saved ? JSON.parse(saved) : seedData
-}
-
 function nextId(records) {
   return records.length ? Math.max(...records.map((record) => record.id)) + 1 : 1
 }
@@ -85,18 +80,35 @@ function money(value) {
 }
 
 function App() {
-  const [data, setData] = useState(loadData)
+  const [data, setData] = useState(seedData)
   const [currentUser, setCurrentUser] = useState(null)
   const [page, setPage] = useState('Dashboard')
   const [message, setMessage] = useState('')
+  const [databaseStatus, setDatabaseStatus] = useState('Loading data...')
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-  }, [data])
+    async function loadData() {
+      const result = await loadAppData(seedData)
+      setData(result.data)
+      setDatabaseStatus(
+        result.error
+          ? `Using localStorage. Supabase error: ${result.error}`
+          : `Using ${result.source}.`,
+      )
+    }
 
-  function updateData(nextData, notice) {
+    loadData()
+  }, [])
+
+  async function updateData(nextData, notice) {
     setData(nextData)
     setMessage(notice || '')
+    const result = await saveAppData(nextData)
+    setDatabaseStatus(
+      result.error
+        ? `Saved locally. Supabase error: ${result.error}`
+        : `Saved to ${result.source}.`,
+    )
   }
 
   if (!currentUser) {
@@ -109,6 +121,9 @@ function App() {
         <h1>Human Milk Bank Management System</h1>
         <p>
           Logged in as {currentUser.name} ({currentUser.role})
+        </p>
+        <p>
+          Database: {databaseStatus} {isSupabaseConfigured ? '' : 'Add .env keys to enable Supabase.'}
         </p>
         <button onClick={() => setCurrentUser(null)} type="button">Logout</button>
       </header>
