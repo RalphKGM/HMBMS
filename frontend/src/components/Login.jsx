@@ -14,14 +14,19 @@ function Login({ data, setCurrentUser }) {
     event.preventDefault();
     (async () => {
       try {
-        const user = await authenticate(username, password, demoUsers, data.users);
+        const user = await authenticate(
+          username,
+          password,
+          demoUsers,
+          data.users,
+        );
         if (!user) {
-          setError('Invalid username or password.');
+          setError("Invalid username or password.");
           return;
         }
         setCurrentUser(user);
       } catch (err) {
-        setError('Login failed.');
+        setError("Login failed.");
       }
     })();
   }
