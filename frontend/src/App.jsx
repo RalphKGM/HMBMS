@@ -3,7 +3,7 @@ import Dashboard from "./components/Dashboard";
 import Login from "./components/Login";
 import { seedData } from "./data/seedData";
 import { loadAppData, saveAppData } from "./lib/dataStore";
-import { isSupabaseConfigured } from "./lib/supabase";
+import { useAuth } from "./context/AuthContext";
 import Beneficiaries from "./modules/Beneficiaries";
 import Dispensing from "./modules/Dispensing";
 import Donors from "./modules/Donors";
@@ -28,38 +28,35 @@ const pages = [
 
 function App() {
   const [data, setData] = useState(seedData);
-  const [currentUser, setCurrentUser] = useState(null);
   const [page, setPage] = useState("Dashboard");
   const [message, setMessage] = useState("");
-  const [databaseStatus, setDatabaseStatus] = useState("Loading data...");
+  const { currentUser, logout, isAdmin } = useAuth();
+
+  const visiblePages = isAdmin ? pages : pages.filter((item) => item !== "Manage Users");
 
   useEffect(() => {
     async function loadData() {
       const result = await loadAppData(seedData);
       setData(result.data);
-      setDatabaseStatus(
-        result.error
-          ? `Using localStorage. Supabase error: ${result.error}`
-          : `Using ${result.source}.`,
-      );
     }
 
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (currentUser && !visiblePages.includes(page)) {
+      setPage("Dashboard");
+    }
+  }, [currentUser, page, visiblePages]);
+
   async function updateData(nextData, notice) {
     setData(nextData);
     setMessage(notice || "");
-    const result = await saveAppData(nextData);
-    setDatabaseStatus(
-      result.error
-        ? `Saved locally. Supabase error: ${result.error}`
-        : `Saved to ${result.source}.`,
-    );
+    await saveAppData(nextData);
   }
 
   if (!currentUser) {
-    return <Login data={data} setCurrentUser={setCurrentUser} />;
+    return <Login />;
   }
 
   return (
@@ -69,17 +66,13 @@ function App() {
         <p>
           Logged in as {currentUser.name} ({currentUser.role})
         </p>
-        <p>
-          Database: {databaseStatus}{" "}
-          {isSupabaseConfigured ? "" : "Add .env keys to enable Supabase."}
-        </p>
-        <button onClick={() => setCurrentUser(null)} type="button">
+        <button onClick={logout} type="button">
           Logout
         </button>
       </header>
 
       <nav>
-        {pages.map((item) => (
+        {visiblePages.map((item) => (
           <button
             className={page === item ? "active" : ""}
             key={item}
@@ -93,10 +86,12 @@ function App() {
 
       {message && <p className="message">{message}</p>}
 
-      {page === "Manage Users" && <ManageUsers />}
+      {page === "Manage Users" && isAdmin && <ManageUsers />}
       {page === "Dashboard" && <Dashboard data={data} />}
       {page === "Donors" && <Donors data={data} updateData={updateData} />}
-      {page === 'Beneficiaries' && <Beneficiaries data={data} updateData={updateData} />}
+      {page === "Beneficiaries" && (
+        <Beneficiaries data={data} updateData={updateData} />
+      )}
       {page === "Milk Records" && <MilkRecords />}
       {page === "Pasteurization" && <Pasteurization />}
       {page === "Dispensing" && (

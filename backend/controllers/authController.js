@@ -20,7 +20,7 @@ export const login = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("users")
-      .select("user_id, username, password")
+      .select("user_id, username, password, role, first_name, last_name, is_active")
       .eq("username", username)
       .single();
 
