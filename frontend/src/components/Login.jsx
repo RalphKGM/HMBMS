@@ -1,22 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Table from "./Table";
+import { supabase, isSupabaseConfigured } from "../lib/supabase";
+import { authenticate } from "../service/authService";
 
 function Login({ data, setCurrentUser }) {
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin123");
   const [error, setError] = useState("");
+  const [demoUsers, setDemoUsers] = useState(data?.users || []);
+  const [loadingDemoUsers, setLoadingDemoUsers] = useState(false);
 
   function login(event) {
     event.preventDefault();
-    const user = data.users.find(
-      (item) => item.username === username && item.password === password,
-    );
-    if (!user) {
-      setError("Invalid username or password.");
-      return;
-    }
-    setCurrentUser(user);
+    (async () => {
+      try {
+        const user = await authenticate(username, password, demoUsers, data.users);
+        if (!user) {
+          setError('Invalid username or password.');
+          return;
+        }
+        setCurrentUser(user);
+      } catch (err) {
+        setError('Login failed.');
+      }
+    })();
   }
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadDemoUsers() {
+      if (!isSupabaseConfigured || !supabase) return;
+      setLoadingDemoUsers(true);
+      const { data: rows, error } = await supabase
+        .from("users")
+        .select("role,username,password");
+      setLoadingDemoUsers(false);
+      if (error) {
+        console.error("Error fetching demo users:", error);
+        return;
+      }
+      if (mounted && rows) setDemoUsers(rows);
+    }
+    loadDemoUsers();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <main>
@@ -43,11 +72,9 @@ function Login({ data, setCurrentUser }) {
       <h2>Demo Accounts</h2>
       <Table
         headers={["Role", "Username", "Password"]}
-        rows={data.users.map((user) => [
-          user.role,
-          user.username,
-          user.password,
-        ])}
+        rows={(demoUsers && demoUsers.length ? demoUsers : data.users).map(
+          (user) => [user.role, user.username, user.password],
+        )}
       />
     </main>
   );
