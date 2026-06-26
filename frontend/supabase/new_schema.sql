@@ -200,8 +200,6 @@ CREATE TRIGGER trg_deduct_volume_on_dispense
     AFTER INSERT ON dispensing_transactions
     FOR EACH ROW EXECUTE FUNCTION deduct_batch_volume();
 
--- SEED: default admin account (change password after first login!)
--- Password field stores a placeholder — hash it before real use.
 INSERT INTO users (username, password, role, first_name, last_name)
 VALUES ('admin', 'admin123', 'Admin', 'System', 'Administrator')
 ON CONFLICT (username) DO NOTHING;
