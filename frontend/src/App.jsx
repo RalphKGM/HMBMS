@@ -7,6 +7,7 @@ import { isSupabaseConfigured } from "./lib/supabase";
 import Beneficiaries from "./modules/Beneficiaries";
 import Dispensing from "./modules/Dispensing";
 import Donors from "./modules/Donors";
+import ManageUsers from "./modules/ManageUsers";
 import MilkRecords from "./modules/MilkRecords";
 import Pasteurization from "./modules/Pasteurization";
 import Reports from "./modules/Reports";
@@ -14,6 +15,7 @@ import SmsLog from "./modules/SmsLog";
 import "./App.css";
 
 const pages = [
+  "Manage Users",
   "Dashboard",
   "Donors",
   "Beneficiaries",
@@ -91,6 +93,7 @@ function App() {
 
       {message && <p className="message">{message}</p>}
 
+      {page === "Manage Users" && <ManageUsers />}
       {page === "Dashboard" && <Dashboard data={data} />}
       {page === "Donors" && <Donors data={data} updateData={updateData} />}
       {page === "Beneficiaries" && <Beneficiaries />}
