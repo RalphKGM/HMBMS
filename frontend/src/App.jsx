@@ -35,7 +35,7 @@ function App() {
   const visiblePages = isAdmin ? pages : pages.filter((item) => item !== "Manage Users");
 
   useEffect(() => {
-    async function loadData() {
+    const loadData = async () => {
       const result = await loadAppData(seedData);
       setData(result.data);
     }
@@ -49,7 +49,7 @@ function App() {
     }
   }, [currentUser, page, visiblePages]);
 
-  async function updateData(nextData, notice) {
+  const updateData = async (nextData, notice) => {
     setData(nextData);
     setMessage(notice || "");
     await saveAppData(nextData);
@@ -88,7 +88,7 @@ function App() {
 
       {page === "Manage Users" && isAdmin && <ManageUsers />}
       {page === "Dashboard" && <Dashboard data={data} />}
-      {page === "Donors" && <Donors data={data} updateData={updateData} />}
+      {page === "Donors" && <Donors currentUser={currentUser} />}
       {page === "Beneficiaries" && (
         <Beneficiaries data={data} updateData={updateData} />
       )}
