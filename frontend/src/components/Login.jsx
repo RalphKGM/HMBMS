@@ -1,31 +1,28 @@
 import { useState } from "react";
-import { authenticate } from "../service/authService";
+import { useAuth } from "../context/AuthContext";
 
-function Login({ setCurrentUser }) {
+function Login() {
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin123");
   const [error, setError] = useState("");
+  const { login } = useAuth();
 
-  const login = (event) => {
+  const handleLogin = (event) => {
     event.preventDefault();
     (async () => {
       try {
-        const user = await authenticate(username, password);
-        if (!user) {
-          setError("Invalid username or password.");
-          return;
-        }
-        setCurrentUser(user);
+        await login(username, password);
+        setError("");
       } catch (err) {
         setError(err.message || "Login failed.");
       }
     })();
-  }
+  };
 
   return (
     <main>
       <h1>HMBMS Login</h1>
-      <form onSubmit={login}>
+      <form onSubmit={handleLogin}>
         <label>
           Username
           <input
