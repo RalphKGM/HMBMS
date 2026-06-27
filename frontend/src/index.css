@@ -12,3 +12,138 @@ select,
 textarea {
   font: inherit;
 }
+
+section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  overflow-wrap: anywhere;
+}
+
+h2 {
+  color: #003b90;
+  font-size: clamp(1.75rem, 2vw, 2.35rem);
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.15;
+}
+
+h3 {
+  color: #003b90;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.25;
+}
+
+p {
+  color: rgb(71 85 105);
+  line-height: 1.55;
+}
+
+form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+  align-items: end;
+  width: 100%;
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  font-weight: 600;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 0.5rem;
+  background: white;
+  color: rgb(15 23 42);
+  padding: 0.65rem 0.8rem;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #1d5bc4;
+  box-shadow: 0 0 0 3px rgba(29, 91, 196, 0.12);
+  outline: none;
+}
+
+textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  min-height: 2.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: white;
+  color: rgb(30 41 59);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  padding: 0.55rem 0.85rem;
+  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+  white-space: normal;
+}
+
+button:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(29, 91, 196, 0.18);
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.message {
+  max-width: 100%;
+  border: 1px solid rgb(191 219 254);
+  border-radius: 0.5rem;
+  background: rgb(239 246 255);
+  color: rgb(30 64 175);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  padding: 0.75rem 1rem;
+}
