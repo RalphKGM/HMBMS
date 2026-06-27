@@ -191,12 +191,14 @@ function MilkRecords({ currentUser }) {
           Volume (mL){" "}
           <input
             required
-            min="1"
+            min="30"
+            max="240"
             type="number"
             value={form.volumeMl}
             onChange={(event) => setForm({ ...form, volumeMl: event.target.value })}
           />
         </label>
+        <p>Each donation session must be between 30 mL and 240 mL.</p>
         <button type="submit" disabled={saving}>
           {saving ? "Saving..." : "Save Collection"}
         </button>

@@ -6,6 +6,9 @@ const batchSelectColumns =
 const collectionSelectColumns =
   "collection_id, batch_id, donor_id, collection_type, collection_date, volume_ml, collected_by, status, created_at";
 
+const pasteurizationSelectColumns =
+  "pasteurization_id, batch_id, pre_test_result, pre_test_date, post_test_result, post_test_date, expiration_date, recorded_by";
+
 function generateBatchNumber() {
   const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
   const suffix = String(Date.now()).slice(-5);
@@ -61,14 +64,42 @@ export const createMilkCollection = async (req, res) => {
     collectedBy,
   } = req.body || {};
   const volume = Number(volumeMl);
+  const parsedDonorId = Number(donorId);
 
-  if (!donorId || !collectionType || !collectionDate || !volume || volume <= 0) {
+  if (!Number.isInteger(parsedDonorId) || !collectionType || !collectionDate || !volume || volume <= 0) {
     return res.status(400).json({
       error: "donorId, collectionType, collectionDate, and positive volumeMl are required.",
     });
   }
 
+  if (volume < 30 || volume > 240) {
+    return res.status(400).json({
+      error: "Each donation session must be between 30 mL and 240 mL.",
+    });
+  }
+
   try {
+    const { data: existingCollections, error: existingCollectionsError } = await supabase
+      .from("milk_collections")
+      .select("collection_id, volume_ml")
+      .eq("donor_id", parsedDonorId)
+      .eq("collection_date", collectionDate);
+
+    if (existingCollectionsError) {
+      return res.status(500).json({ error: existingCollectionsError.message });
+    }
+
+    const existingDailyVolume = (existingCollections || []).reduce(
+      (total, item) => total + Number(item.volume_ml || 0),
+      0,
+    );
+
+    if (existingDailyVolume + volume > 800) {
+      return res.status(400).json({
+        error: "A donor cannot donate more than 800 mL in a single day.",
+      });
+    }
+
     const { data: batch, error: batchError } = await supabase
       .from("milk_batches")
       .insert({
@@ -89,7 +120,7 @@ export const createMilkCollection = async (req, res) => {
       .from("milk_collections")
       .insert({
         batch_id: batch.batch_id,
-        donor_id: Number(donorId),
+        donor_id: parsedDonorId,
         collection_type: collectionType,
         collection_date: collectionDate,
         volume_ml: volume,
@@ -104,7 +135,22 @@ export const createMilkCollection = async (req, res) => {
       return res.status(500).json({ error: collectionError.message });
     }
 
-    return res.status(201).json({ batch, collection });
+    const { data: pasteurizationRecord, error: pasteurizationError } = await supabase
+      .from("pasteurization_records")
+      .insert({
+        batch_id: batch.batch_id,
+        recorded_by: collectedBy || null,
+      })
+      .select(pasteurizationSelectColumns)
+      .single();
+
+    if (pasteurizationError) {
+      await supabase.from("milk_collections").delete().eq("collection_id", collection.collection_id);
+      await supabase.from("milk_batches").delete().eq("batch_id", batch.batch_id);
+      return res.status(500).json({ error: pasteurizationError.message });
+    }
+
+    return res.status(201).json({ batch, collection, pasteurizationRecord });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });
