@@ -86,7 +86,7 @@ function App() {
       {activePage === "Donors" && <Donors currentUser={currentUser} />}
       {activePage === "Beneficiaries" && <Beneficiaries currentUser={currentUser} />}
       {activePage === "Milk Records" && <MilkRecords currentUser={currentUser} />}
-      {activePage === "Pasteurization" && <Pasteurization />}
+      {activePage === "Pasteurization" && <Pasteurization currentUser={currentUser} />}
       {activePage === "Dispensing" && (
         <Dispensing
           currentUser={currentUser}
