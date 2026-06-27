@@ -159,7 +159,6 @@ export const createMilkCollection = async (req, res) => {
       });
     }
 
-    const donorSet = new Set();
     for (const contributor of normalizedContributors) {
       if (!Number.isInteger(contributor.donorId)) {
         return res.status(400).json({ error: "Each contributor must have a valid donor." });
@@ -169,14 +168,6 @@ export const createMilkCollection = async (req, res) => {
       if (volumeError) {
         return res.status(400).json({ error: volumeError });
       }
-
-      if (donorSet.has(contributor.donorId)) {
-        return res.status(400).json({
-          error: "Duplicate donor selection is not allowed within the same pooled batch.",
-        });
-      }
-
-      donorSet.add(contributor.donorId);
     }
   } else if (!Number.isInteger(parsedDonorId) || !volume) {
     return res.status(400).json({
@@ -244,6 +235,148 @@ export const createMilkCollection = async (req, res) => {
       collection: collections?.[0] || null,
       pasteurizationRecord,
     });
+  } catch (err) {
+    if (err.message === "A donor cannot donate more than 800 mL in a single day.") {
+      return res.status(400).json({ error: err.message });
+    }
+
+    console.error(err);
+    return res.status(500).json({ error: err.message || "Server error" });
+  }
+};
+
+export const createPooledBatch = async (req, res) => {
+  if (!isSupabaseConfigured || !supabase) {
+    return res.status(500).json({ error: "Supabase not configured on server." });
+  }
+
+  const { collectionType, collectionDate, collectedBy } = req.body || {};
+
+  if (!collectionType || !collectionDate) {
+    return res.status(400).json({
+      error: "collectionType and collectionDate are required.",
+    });
+  }
+
+  try {
+    const { data: batch, error: batchError } = await supabase
+      .from("milk_batches")
+      .insert({
+        batch_number: generateBatchNumber(),
+        is_pooled: true,
+        total_volume: 0,
+        available_volume: 0,
+        status: "Pending Lab",
+      })
+      .select(batchSelectColumns)
+      .single();
+
+    if (batchError) {
+      return res.status(500).json({ error: batchError.message });
+    }
+
+    return res.status(201).json({ batch, collectionType, collectionDate, collectedBy: collectedBy || null });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+export const addContributorToPooledBatch = async (req, res) => {
+  if (!isSupabaseConfigured || !supabase) {
+    return res.status(500).json({ error: "Supabase not configured on server." });
+  }
+
+  const batchId = Number(req.params.batchId);
+  const { donorId, volumeMl, collectionType, collectionDate, collectedBy } = req.body || {};
+  const parsedDonorId = Number(donorId);
+  const parsedVolume = Number(volumeMl);
+
+  if (!Number.isInteger(batchId)) {
+    return res.status(400).json({ error: "Invalid batch id." });
+  }
+
+  if (!Number.isInteger(parsedDonorId) || !collectionType || !collectionDate || !parsedVolume) {
+    return res.status(400).json({
+      error: "donorId, collectionType, collectionDate, and positive volumeMl are required.",
+    });
+  }
+
+  const volumeError = validateContributorVolume(parsedVolume);
+  if (volumeError) {
+    return res.status(400).json({ error: volumeError });
+  }
+
+  try {
+    const { data: batch, error: batchLookupError } = await supabase
+      .from("milk_batches")
+      .select(batchSelectColumns)
+      .eq("batch_id", batchId)
+      .single();
+
+    if (batchLookupError) {
+      return res.status(500).json({ error: batchLookupError.message });
+    }
+
+    if (!batch || !batch.is_pooled) {
+      return res.status(400).json({ error: "Selected batch is not a pooled batch." });
+    }
+
+    const { data: batchCollections, error: batchCollectionsError } = await supabase
+      .from("milk_collections")
+      .select("collection_id, donor_id, volume_ml")
+      .eq("batch_id", batchId);
+
+    if (batchCollectionsError) {
+      return res.status(500).json({ error: batchCollectionsError.message });
+    }
+
+    if (batchCollections && batchCollections.length > 0) {
+      const batchCollectionDate = batchCollections[0].collection_date;
+      if (batchCollectionDate && batchCollectionDate !== collectionDate) {
+        return res.status(400).json({
+          error: "A pooled batch can only accept contributions with the same collection date.",
+        });
+      }
+    }
+
+    await assertDailyLimitForContributors([{ donorId: parsedDonorId, volumeMl: parsedVolume }], collectionDate);
+
+    const { data: collection, error: collectionError } = await supabase
+      .from("milk_collections")
+      .insert({
+        batch_id: batchId,
+        donor_id: parsedDonorId,
+        collection_type: collectionType,
+        collection_date: collectionDate,
+        volume_ml: parsedVolume,
+        collected_by: collectedBy || null,
+        status: "Pending Lab",
+      })
+      .select(collectionSelectColumns)
+      .single();
+
+    if (collectionError) {
+      return res.status(500).json({ error: collectionError.message });
+    }
+
+    const updatedTotal = Number(batch.total_volume || 0) + parsedVolume;
+    const { data: updatedBatch, error: batchUpdateError } = await supabase
+      .from("milk_batches")
+      .update({
+        total_volume: updatedTotal,
+        available_volume: updatedTotal,
+      })
+      .eq("batch_id", batchId)
+      .select(batchSelectColumns)
+      .single();
+
+    if (batchUpdateError) {
+      await supabase.from("milk_collections").delete().eq("collection_id", collection.collection_id);
+      return res.status(500).json({ error: batchUpdateError.message });
+    }
+
+    return res.status(201).json({ batch: updatedBatch, collection });
   } catch (err) {
     if (err.message === "A donor cannot donate more than 800 mL in a single day.") {
       return res.status(400).json({ error: err.message });

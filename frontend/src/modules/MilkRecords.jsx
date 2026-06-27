@@ -2,14 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import Table from "../components/Table";
 import { fullName, today } from "../utils/helpers";
 
-const initialSingleForm = {
+const initialForm = {
   donorId: "",
   collectionType: "Supsup Todo",
   collectionDate: today(),
   volumeMl: "",
 };
 
-const initialContributor = {
+const initialPoolForm = {
+  collectionType: "Supsup Todo",
+  collectionDate: today(),
   donorId: "",
   volumeMl: "",
 };
@@ -56,14 +58,14 @@ function MilkRecords({ currentUser }) {
   const [batches, setBatches] = useState([]);
   const [collections, setCollections] = useState([]);
   const [query, setQuery] = useState("");
-  const [isPooled, setIsPooled] = useState(false);
-  const [singleForm, setSingleForm] = useState(initialSingleForm);
-  const [contributors, setContributors] = useState([initialContributor]);
+  const [singleForm, setSingleForm] = useState(initialForm);
+  const [poolForm, setPoolForm] = useState(initialPoolForm);
+  const [isPooledMode, setIsPooledMode] = useState(false);
+  const [selectedPoolBatchId, setSelectedPoolBatchId] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [selectedBatchId, setSelectedBatchId] = useState("");
 
   const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -145,6 +147,15 @@ function MilkRecords({ currentUser }) {
     }, {});
   }, [collections]);
 
+  const batchContributors = useMemo(() => {
+    if (!selectedPoolBatchId) return [];
+    return (collectionsByBatch[selectedPoolBatchId] || []).slice().sort((left, right) => {
+      return left.collection_id - right.collection_id;
+    });
+  }, [collectionsByBatch, selectedPoolBatchId]);
+
+  const pooledBatches = useMemo(() => batches.filter((batch) => batch.is_pooled), [batches]);
+
   const filteredCollections = useMemo(() => {
     return collections.filter((collection) => {
       const text = `${donorNames[collection.donor_id]} ${collection.collection_type} ${collection.status}`;
@@ -152,71 +163,58 @@ function MilkRecords({ currentUser }) {
     });
   }, [collections, donorNames, query]);
 
-  const selectedBatch = useMemo(() => {
-    return batches.find((batch) => String(batch.batch_id) === String(selectedBatchId)) || null;
-  }, [batches, selectedBatchId]);
+  const selectedBatch = useMemo(
+    () => batches.find((batch) => String(batch.batch_id) === String(selectedPoolBatchId)) || null,
+    [batches, selectedPoolBatchId],
+  );
 
-  const selectedBatchContributors = useMemo(() => {
-    if (!selectedBatch) return [];
-    return collectionsByBatch[selectedBatch.batch_id] || [];
-  }, [collectionsByBatch, selectedBatch]);
+  const selectedBatchSummary = useMemo(() => {
+    if (!selectedBatch) return null;
+    return {
+      collectionDate: batchContributors[0]?.collection_date || selectedBatch.created_at?.slice(0, 10) || "Not set",
+      collectionType: batchContributors[0]?.collection_type || poolForm.collectionType,
+      collectedBy: batchContributors[0]
+        ? userNames[batchContributors[0].collected_by] || "Unknown"
+        : "Unknown",
+      totalVolume: Number(selectedBatch.total_volume || 0),
+      status: selectedBatch.status,
+    };
+  }, [batchContributors, poolForm.collectionType, selectedBatch, userNames]);
 
-  const totalVolume = useMemo(() => {
-    if (isPooled) {
-      return contributors.reduce((total, contributor) => total + Number(contributor.volumeMl || 0), 0);
+  useEffect(() => {
+    if (!selectedPoolBatchId) return;
+
+    const firstContributorDate = batchContributors[0]?.collection_date;
+    if (firstContributorDate) {
+      setPoolForm((current) => ({
+        ...current,
+        collectionDate: firstContributorDate,
+      }));
     }
-    return Number(singleForm.volumeMl || 0);
-  }, [contributors, isPooled, singleForm.volumeMl]);
+  }, [batchContributors, selectedPoolBatchId]);
 
-  const resetForm = () => {
-    setSingleForm(initialSingleForm);
-    setIsPooled(false);
-    setContributors([initialContributor]);
+  const resetSingleForm = () => {
+    setSingleForm(initialForm);
   };
 
-  const updateContributor = (index, field, value) => {
-    setContributors((current) =>
-      current.map((contributor, currentIndex) =>
-        currentIndex === index ? { ...contributor, [field]: value } : contributor,
-      ),
-    );
+  const resetPoolForm = () => {
+    setPoolForm(initialPoolForm);
   };
 
-  const addContributor = () => {
-    setContributors((current) => [...current, initialContributor]);
-  };
-
-  const removeContributor = (index) => {
-    setContributors((current) => current.filter((_, currentIndex) => currentIndex !== index));
-  };
-
-  const saveCollection = async (event) => {
+  const saveSingleCollection = async (event) => {
     event.preventDefault();
     setSaving(true);
     setError("");
     setMessage("");
 
-    const payload = isPooled
-      ? {
-          poolBatch: true,
-          collectionType: singleForm.collectionType,
-          collectionDate: singleForm.collectionDate,
-          collectedBy: currentUser?.id ?? currentUser?.user_id ?? null,
-          contributors: contributors,
-        }
-      : {
-          donorId: singleForm.donorId,
-          collectionType: singleForm.collectionType,
-          collectionDate: singleForm.collectionDate,
-          volumeMl: singleForm.volumeMl,
-          collectedBy: currentUser?.id ?? currentUser?.user_id ?? null,
-        };
-
     try {
       const response = await fetch(`${apiBase}/api/milk-records/collections`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...singleForm,
+          collectedBy: currentUser?.id ?? currentUser?.user_id ?? null,
+        }),
       });
       const body = await response.json().catch(() => ({}));
 
@@ -225,7 +223,7 @@ function MilkRecords({ currentUser }) {
       }
 
       setMessage(`Milk collection saved under ${body.batch?.batch_number || "new batch"}.`);
-      resetForm();
+      resetSingleForm();
       await loadMilkRecords();
     } catch (saveError) {
       setError(saveError.message || "Failed to save collection.");
@@ -234,9 +232,89 @@ function MilkRecords({ currentUser }) {
     }
   };
 
-  const collectedByName = (collection) => userNames[collection.collected_by] || "Unknown";
+  const createPooledBatch = async () => {
+    setSaving(true);
+    setError("");
+    setMessage("");
 
-  const entryRows = useMemo(() => {
+    try {
+      const response = await fetch(`${apiBase}/api/milk-records/pools`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          collectionType: poolForm.collectionType,
+          collectionDate: poolForm.collectionDate,
+          collectedBy: currentUser?.id ?? currentUser?.user_id ?? null,
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(body.error || "Failed to create pooled batch.");
+      }
+
+      setSelectedPoolBatchId(String(body.batch.batch_id));
+      setMessage(`Pooled batch ${body.batch.batch_number} created.`);
+      resetPoolForm();
+      await loadMilkRecords();
+    } catch (createError) {
+      setError(createError.message || "Failed to create pooled batch.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addContributorToBatch = async () => {
+    if (!selectedPoolBatchId) {
+      setError("Select a pooled batch first.");
+      return;
+    }
+
+    if (!poolForm.donorId || !poolForm.volumeMl) {
+      setError("Select a donor and enter a volume.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        `${apiBase}/api/milk-records/pools/${selectedPoolBatchId}/contributions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            donorId: poolForm.donorId,
+            volumeMl: poolForm.volumeMl,
+            collectionType: poolForm.collectionType,
+            collectionDate: poolForm.collectionDate,
+            collectedBy: currentUser?.id ?? currentUser?.user_id ?? null,
+          }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(body.error || "Failed to add donor contribution.");
+      }
+
+      setMessage(`Added contribution to ${body.batch?.batch_number || "selected batch"}.`);
+      setPoolForm((current) => ({
+        ...current,
+        donorId: "",
+        volumeMl: "",
+      }));
+      await loadMilkRecords();
+    } catch (addError) {
+      setError(addError.message || "Failed to add donor contribution.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const pooledCollectionRows = useMemo(() => {
     return filteredCollections.map((collection) => {
       const batchEntries = (collectionsByBatch[collection.batch_id] || []).slice().sort(
         (left, right) => left.collection_id - right.collection_id,
@@ -244,27 +322,20 @@ function MilkRecords({ currentUser }) {
       const entryNumber = batchEntries.findIndex((item) => item.collection_id === collection.collection_id) + 1;
 
       return [
-        collection.batch_id,
+        batches.find((batch) => batch.batch_id === collection.batch_id)?.batch_number ||
+          `Batch #${collection.batch_id}`,
         entryNumber > 0 ? entryNumber : 1,
         donorOptions.find((donor) => donor.donor_id === collection.donor_id)?.dtn ||
-          donorNames[collection.donor_id] ||
           "Unknown",
         donorNames[collection.donor_id] || "Unknown",
         `${collection.volume_ml} mL`,
         collection.collection_type,
         collection.collection_date,
-        collectedByName(collection),
+        userNames[collection.collected_by] || "Unknown",
         collection.status,
-        <button
-          key={`summary-${collection.collection_id}`}
-          type="button"
-          onClick={() => setSelectedBatchId(collection.batch_id)}
-        >
-          View Pooling Summary
-        </button>,
       ];
     });
-  }, [collectionsByBatch, collectedByName, donorNames, donorOptions, filteredCollections]);
+  }, [batches, collectionsByBatch, donorNames, donorOptions, filteredCollections, userNames]);
 
   if (loading) {
     return <p>Loading milk records...</p>;
@@ -276,127 +347,159 @@ function MilkRecords({ currentUser }) {
       {error && <p className="message">{error}</p>}
       {message && <p className="message">{message}</p>}
 
-      <form onSubmit={saveCollection}>
-        <label>
-          <input
-            type="checkbox"
-            checked={isPooled}
-            onChange={(event) => setIsPooled(event.target.checked)}
-          />{" "}
-          Pool this batch
-        </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={isPooledMode}
+          onChange={(event) => setIsPooledMode(event.target.checked)}
+        />{" "}
+        Create Pooled Batch
+      </label>
 
-        <label>
-          Collection Type
-          <select
-            value={singleForm.collectionType}
-            onChange={(event) => setSingleForm({ ...singleForm, collectionType: event.target.value })}
-          >
-            <option value="Supsup Todo">Supsup Todo</option>
-            <option value="Milky Way">Milky Way</option>
-            <option value="Mom's Act">Mom's Act</option>
-          </select>
-        </label>
+      {!isPooledMode ? (
+        <form onSubmit={saveSingleCollection}>
+          <label>
+            Donor
+            <select
+              required
+              value={singleForm.donorId}
+              onChange={(event) => setSingleForm({ ...singleForm, donorId: event.target.value })}
+            >
+              <option value="">Select donor</option>
+              {donorOptions.map((donor) => (
+                <option key={donor.donor_id} value={donor.donor_id}>
+                  {donor.dtn} - {donorNames[donor.donor_id]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Collection Type
+            <select
+              value={singleForm.collectionType}
+              onChange={(event) =>
+                setSingleForm({ ...singleForm, collectionType: event.target.value })
+              }
+            >
+              <option value="Supsup Todo">Supsup Todo</option>
+              <option value="Milky Way">Milky Way</option>
+              <option value="Mom's Act">Mom's Act</option>
+            </select>
+          </label>
+          <label>
+            Collection Date{" "}
+            <input
+              required
+              type="date"
+              value={singleForm.collectionDate}
+              onChange={(event) =>
+                setSingleForm({ ...singleForm, collectionDate: event.target.value })
+              }
+            />
+          </label>
+          <label>
+            Volume (mL){" "}
+            <input
+              required
+              min="30"
+              max="240"
+              type="number"
+              value={singleForm.volumeMl}
+              onChange={(event) => setSingleForm({ ...singleForm, volumeMl: event.target.value })}
+            />
+          </label>
+          <p>Each donation session must be between 30 mL and 240 mL.</p>
+          <button type="submit" disabled={saving}>
+            {saving ? "Saving..." : "Save Collection"}
+          </button>
+        </form>
+      ) : (
+        <section>
+          <h3>Create Pooled Batch</h3>
+          <label>
+            Collection Type
+            <select
+              value={poolForm.collectionType}
+              onChange={(event) => setPoolForm({ ...poolForm, collectionType: event.target.value })}
+            >
+              <option value="Supsup Todo">Supsup Todo</option>
+              <option value="Milky Way">Milky Way</option>
+              <option value="Mom's Act">Mom's Act</option>
+            </select>
+          </label>
+          <label>
+            Collection Date{" "}
+            <input
+              required
+              type="date"
+              value={poolForm.collectionDate}
+              onChange={(event) => setPoolForm({ ...poolForm, collectionDate: event.target.value })}
+              disabled={Boolean(selectedPoolBatchId && batchContributors[0]?.collection_date)}
+            />
+          </label>
+          {selectedPoolBatchId && batchContributors[0]?.collection_date && (
+            <p>Collection date is locked to {batchContributors[0].collection_date} for this batch.</p>
+          )}
+          <button type="button" onClick={createPooledBatch} disabled={saving}>
+            {saving ? "Creating..." : "Create Pooled Batch"}
+          </button>
 
-        <label>
-          Collection Date{" "}
-          <input
-            required
-            type="date"
-            value={singleForm.collectionDate}
-            onChange={(event) => setSingleForm({ ...singleForm, collectionDate: event.target.value })}
-          />
-        </label>
-
-        {!isPooled ? (
-          <>
-            <label>
-              Donor
-              <select
-                required
-                value={singleForm.donorId}
-                onChange={(event) => setSingleForm({ ...singleForm, donorId: event.target.value })}
-              >
-                <option value="">Select donor</option>
-                {donorOptions.map((donor) => (
-                  <option key={donor.donor_id} value={donor.donor_id}>
-                    {donor.dtn} - {donorNames[donor.donor_id]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Volume (mL){" "}
-              <input
-                required
-                min="30"
-                max="240"
-                type="number"
-                value={singleForm.volumeMl}
-                onChange={(event) => setSingleForm({ ...singleForm, volumeMl: event.target.value })}
-              />
-            </label>
-            <p>Each donation session must be between 30 mL and 240 mL.</p>
-          </>
-        ) : (
-          <>
-            <p>Batch Number will be generated when the batch is saved.</p>
-            <h3>Contributors</h3>
-            {contributors.map((contributor, index) => (
-              <div key={`contributor-${index}`} style={{ marginBottom: "1rem" }}>
-                <label>
-                  Donor
-                  <select
-                    required
-                    value={contributor.donorId}
-                    onChange={(event) => updateContributor(index, "donorId", event.target.value)}
-                  >
-                    <option value="">Select donor</option>
-                    {donorOptions.map((donor) => (
-                      <option key={donor.donor_id} value={donor.donor_id}>
-                        {donor.dtn} - {donorNames[donor.donor_id]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Volume (mL){" "}
-                  <input
-                    required
-                    min="30"
-                    max="240"
-                    type="number"
-                    value={contributor.volumeMl}
-                    onChange={(event) => updateContributor(index, "volumeMl", event.target.value)}
-                  />
-                </label>
-                {contributors.length > 1 && (
-                  <button type="button" onClick={() => removeContributor(index)}>
-                    Remove Donor
-                  </button>
-                )}
-              </div>
-            ))}
-            <button type="button" onClick={addContributor}>
-              Add Donor
-            </button>
-            <p>Each contribution must be between 30 mL and 240 mL.</p>
-            <p>Total Volume: {totalVolume} mL</p>
-          </>
-        )}
-
-        <label>
-          Collected By
-          <input
-            readOnly
-            value={currentUser?.name || [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(" ")}
-          />
-        </label>
-
-        <button type="submit" disabled={saving}>
-          {saving ? "Saving..." : isPooled ? "Save Pooled Batch" : "Save Collection"}
-        </button>
-      </form>
+          <h3>Add Contributor to Batch</h3>
+          <label>
+            Pooled Batch
+            <select
+              value={selectedPoolBatchId}
+              onChange={(event) => {
+                setSelectedPoolBatchId(event.target.value);
+                const nextBatch = batches.find((batch) => String(batch.batch_id) === event.target.value);
+                const nextDate = nextBatch
+                  ? (collectionsByBatch[nextBatch.batch_id]?.[0]?.collection_date || poolForm.collectionDate)
+                  : poolForm.collectionDate;
+                setPoolForm((current) => ({
+                  ...current,
+                  collectionDate: nextDate,
+                }));
+              }}
+            >
+              <option value="">Select pooled batch</option>
+              {pooledBatches.map((batch) => (
+                <option key={batch.batch_id} value={batch.batch_id}>
+                  {batch.batch_number} - {batch.total_volume} mL
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Donor
+            <select
+              value={poolForm.donorId}
+              onChange={(event) => setPoolForm({ ...poolForm, donorId: event.target.value })}
+            >
+              <option value="">Select donor</option>
+              {donorOptions.map((donor) => (
+                <option key={donor.donor_id} value={donor.donor_id}>
+                  {donor.dtn} - {donorNames[donor.donor_id]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Volume (mL){" "}
+            <input
+              required
+              min="30"
+              max="240"
+              type="number"
+              value={poolForm.volumeMl}
+              onChange={(event) => setPoolForm({ ...poolForm, volumeMl: event.target.value })}
+            />
+          </label>
+          <p>Each contribution must be between 30 mL and 240 mL.</p>
+          <button type="button" onClick={addContributorToBatch} disabled={saving}>
+            {saving ? "Saving..." : "Add to Batch"}
+          </button>
+        </section>
+      )}
 
       <h3>Collection Records</h3>
       <label>
@@ -414,23 +517,8 @@ function MilkRecords({ currentUser }) {
           "Collection Date",
           "Collected By",
           "Status",
-          "Action",
         ]}
-        rows={entryRows.map((row) => {
-          const batch = batches.find((item) => item.batch_id === row[0]);
-          return [
-            batch?.batch_number || `Batch #${row[0]}`,
-            row[1],
-            row[2],
-            row[3],
-            row[4],
-            row[5],
-            row[6],
-            row[7],
-            row[8],
-            row[9],
-          ];
-        })}
+        rows={pooledCollectionRows}
       />
 
       <h3>Milk Batches</h3>
@@ -448,22 +536,27 @@ function MilkRecords({ currentUser }) {
       {selectedBatch && (
         <div>
           <h3>Pooling Summary - {selectedBatch.batch_number}</h3>
-          <button type="button" onClick={() => setSelectedBatchId("")}>
+          <button type="button" onClick={() => setSelectedPoolBatchId("")}>
             Close
           </button>
-          <p>Collection Date: {selectedBatchContributors[0]?.collection_date || "Not set"}</p>
-          <p>Collection Type: {selectedBatchContributors[0]?.collection_type || "Not set"}</p>
-          <p>Collected By: {selectedBatchContributors[0] ? collectedByName(selectedBatchContributors[0]) : "Unknown"}</p>
-          <Table
-            headers={["Donor Name", "DTN", "Volume"]}
-            rows={selectedBatchContributors.map((collection) => [
-              donorNames[collection.donor_id] || "Unknown",
-              donorOptions.find((donor) => donor.donor_id === collection.donor_id)?.dtn || "Unknown",
-              `${collection.volume_ml} mL`,
-            ])}
-          />
-          <p>Total Volume: {selectedBatch.total_volume} mL</p>
-          <p>Status: {selectedBatch.status}</p>
+          {selectedBatchSummary && (
+            <>
+              <p>Collection Date: {selectedBatchSummary.collectionDate}</p>
+              <p>Collection Type: {selectedBatchSummary.collectionType}</p>
+              <p>Collected By: {selectedBatchSummary.collectedBy}</p>
+              <Table
+                headers={["Donor Name", "DTN", "Volume"]}
+                rows={batchContributors.map((collection) => [
+                  donorNames[collection.donor_id] || "Unknown",
+                  donorOptions.find((donor) => donor.donor_id === collection.donor_id)?.dtn ||
+                    "Unknown",
+                  `${collection.volume_ml} mL`,
+                ])}
+              />
+              <p>Total Volume: {selectedBatchSummary.totalVolume} mL</p>
+              <p>Status: {selectedBatchSummary.status}</p>
+            </>
+          )}
         </div>
       )}
     </section>
