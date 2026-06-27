@@ -88,7 +88,7 @@ function App() {
       {activePage === "Milk Records" && <MilkRecords currentUser={currentUser} />}
       {activePage === "Pasteurization" && <Pasteurization currentUser={currentUser} />}
       {activePage === "Dispensing" && <Dispensing currentUser={currentUser} />}
-      {activePage === "Reports" && <Reports data={data} />}
+      {activePage === "Reports" && <Reports />}
       {activePage === "SMS Log" && (
         <SmsLog currentUser={currentUser} data={data} updateData={updateData} />
       )}

@@ -8,6 +8,7 @@ import dispensingRoutes from "./routes/dispensing.js";
 import donorsRoutes from "./routes/donors.js";
 import milkRecordsRoutes from "./routes/milkRecords.js";
 import pasteurizationRoutes from "./routes/pasteurization.js";
+import reportsRoutes from "./routes/reports.js";
 import usersRoutes from "./routes/users.js";
 
 const app = express();
@@ -21,6 +22,7 @@ app.use("/api/dispensing", dispensingRoutes);
 app.use("/api/donors", donorsRoutes);
 app.use("/api/milk-records", milkRecordsRoutes);
 app.use("/api/pasteurization", pasteurizationRoutes);
+app.use("/api/reports", reportsRoutes);
 app.use("/api/users", usersRoutes);
 
 app.get("/test", (req, res) => {
