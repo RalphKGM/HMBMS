@@ -12,6 +12,17 @@ const initialForm = {
   collectionProgram: "Supsup Todo",
 };
 
+async function fetchDonors(apiBase) {
+  const response = await fetch(`${apiBase}/api/donors`);
+  const body = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(body.error || "Failed to load donors.");
+  }
+
+  return body.donors || [];
+}
+
 function Donors({ currentUser }) {
   const [donors, setDonors] = useState([]);
   const [query, setQuery] = useState("");
@@ -28,14 +39,7 @@ function Donors({ currentUser }) {
     setError("");
 
     try {
-      const response = await fetch(`${apiBase}/api/donors`);
-      const body = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(body.error || "Failed to load donors.");
-      }
-
-      setDonors(body.donors || []);
+      setDonors(await fetchDonors(apiBase));
     } catch (fetchError) {
       setError(fetchError.message || "Failed to load donors.");
       setDonors([]);
@@ -45,8 +49,25 @@ function Donors({ currentUser }) {
   }
 
   useEffect(() => {
-    loadDonors();
-  }, []);
+    let isMounted = true;
+
+    fetchDonors(apiBase)
+      .then((records) => {
+        if (isMounted) setDonors(records);
+      })
+      .catch((fetchError) => {
+        if (!isMounted) return;
+        setError(fetchError.message || "Failed to load donors.");
+        setDonors([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [apiBase]);
 
   const filteredDonors = useMemo(() => {
     return donors.filter((donor) => {

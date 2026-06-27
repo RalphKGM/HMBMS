@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 
 import authRoutes from "./routes/auth.js";
+import beneficiariesRoutes from "./routes/beneficiaries.js";
 import donorsRoutes from "./routes/donors.js";
 import usersRoutes from "./routes/users.js";
 
@@ -10,6 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
+app.use("/api/beneficiaries", beneficiariesRoutes);
 app.use("/api/donors", donorsRoutes);
 app.use("/api/users", usersRoutes);
 

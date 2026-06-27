@@ -3,7 +3,7 @@ import Dashboard from "./components/Dashboard";
 import Login from "./components/Login";
 import { seedData } from "./data/seedData";
 import { loadAppData, saveAppData } from "./lib/dataStore";
-import { useAuth } from "./context/AuthContext";
+import { useAuth } from "./hooks/useAuth";
 import Beneficiaries from "./modules/Beneficiaries";
 import Dispensing from "./modules/Dispensing";
 import Donors from "./modules/Donors";
@@ -33,6 +33,7 @@ function App() {
   const { currentUser, logout, isAdmin } = useAuth();
 
   const visiblePages = isAdmin ? pages : pages.filter((item) => item !== "Manage Users");
+  const activePage = visiblePages.includes(page) ? page : "Dashboard";
 
   useEffect(() => {
     const loadData = async () => {
@@ -42,12 +43,6 @@ function App() {
 
     loadData();
   }, []);
-
-  useEffect(() => {
-    if (currentUser && !visiblePages.includes(page)) {
-      setPage("Dashboard");
-    }
-  }, [currentUser, page, visiblePages]);
 
   const updateData = async (nextData, notice) => {
     setData(nextData);
@@ -74,7 +69,7 @@ function App() {
       <nav>
         {visiblePages.map((item) => (
           <button
-            className={page === item ? "active" : ""}
+            className={activePage === item ? "active" : ""}
             key={item}
             onClick={() => setPage(item)}
             type="button"
@@ -86,23 +81,21 @@ function App() {
 
       {message && <p className="message">{message}</p>}
 
-      {page === "Manage Users" && isAdmin && <ManageUsers />}
-      {page === "Dashboard" && <Dashboard data={data} />}
-      {page === "Donors" && <Donors currentUser={currentUser} />}
-      {page === "Beneficiaries" && (
-        <Beneficiaries data={data} updateData={updateData} />
-      )}
-      {page === "Milk Records" && <MilkRecords />}
-      {page === "Pasteurization" && <Pasteurization />}
-      {page === "Dispensing" && (
+      {activePage === "Manage Users" && isAdmin && <ManageUsers />}
+      {activePage === "Dashboard" && <Dashboard data={data} />}
+      {activePage === "Donors" && <Donors currentUser={currentUser} />}
+      {activePage === "Beneficiaries" && <Beneficiaries currentUser={currentUser} />}
+      {activePage === "Milk Records" && <MilkRecords />}
+      {activePage === "Pasteurization" && <Pasteurization />}
+      {activePage === "Dispensing" && (
         <Dispensing
           currentUser={currentUser}
           data={data}
           updateData={updateData}
         />
       )}
-      {page === "Reports" && <Reports data={data} />}
-      {page === "SMS Log" && (
+      {activePage === "Reports" && <Reports data={data} />}
+      {activePage === "SMS Log" && (
         <SmsLog currentUser={currentUser} data={data} updateData={updateData} />
       )}
     </main>

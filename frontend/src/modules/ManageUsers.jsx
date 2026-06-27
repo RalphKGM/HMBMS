@@ -1,5 +1,16 @@
 import { useEffect, useState } from "react";
 
+async function fetchUsers(apiBase) {
+  const response = await fetch(`${apiBase}/api/users`);
+  const body = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(body.error || "Failed to load users.");
+  }
+
+  return body.users || [];
+}
+
 function ManageUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,14 +31,7 @@ function ManageUsers() {
     const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
     try {
-      const response = await fetch(`${apiBase}/api/users`);
-      const body = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(body.error || "Failed to load users.");
-      }
-
-      setUsers(body.users || []);
+      setUsers(await fetchUsers(apiBase));
       setError("");
     } catch (fetchError) {
       setError(fetchError.message || "Failed to load users.");
@@ -38,7 +42,25 @@ function ManageUsers() {
   }
 
   useEffect(() => {
-    loadUsers();
+    let isMounted = true;
+    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+    fetchUsers(apiBase)
+      .then((records) => {
+        if (isMounted) setUsers(records);
+      })
+      .catch((fetchError) => {
+        if (!isMounted) return;
+        setError(fetchError.message || "Failed to load users.");
+        setUsers([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleCreateUser = async (event) => {

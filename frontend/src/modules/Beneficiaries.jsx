@@ -1,103 +1,289 @@
-import { useState } from 'react'
-import Table from '../components/Table'
-import { fullName, nextId } from '../utils/helpers'
+import { useEffect, useMemo, useState } from "react";
+import Table from "../components/Table";
+import { fullName } from "../utils/helpers";
 
-function Beneficiaries({ data, updateData }) {
-  const [query, setQuery] = useState('')
-  const [form, setForm] = useState({
-    firstName: '',
-    lastName: '',
-    contactNumber: '',
-    address: '',
-  })
-  const [selectedBeneficiary, setSelectedBeneficiary] = useState(null)
+const initialForm = {
+  firstName: "",
+  lastName: "",
+  contactNumber: "",
+  address: "",
+};
 
-  const filteredBeneficiaries = data.beneficiaries.filter((b) => {
-    const text = `${fullName(b)} ${b.contactNumber} ${b.address} ${b.isActive ? 'Active' : 'Inactive'}`
-    return text.toLowerCase().includes(query.toLowerCase())
-  })
+async function fetchBeneficiaries(apiBase) {
+  const response = await fetch(`${apiBase}/api/beneficiaries`);
+  const body = await response.json().catch(() => ({}));
 
-  function resetForm() {
-    setForm({
-      firstName: '',
-      lastName: '',
-      contactNumber: '',
-      address: '',
-    })
+  if (!response.ok) {
+    throw new Error(body.error || "Failed to load beneficiaries.");
   }
 
-  function saveBeneficiary(event) {
-    event.preventDefault()
-    const id = nextId(data.beneficiaries)
-    const beneficiary = {
-      id,
-      ...form,
-      isActive: true,
+  return body.beneficiaries || [];
+}
+
+async function fetchInquiries(apiBase, beneficiaryId) {
+  const response = await fetch(
+    `${apiBase}/api/beneficiaries/${beneficiaryId}/inquiries`,
+  );
+  const body = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(body.error || "Failed to load inquiries.");
+  }
+
+  return body.inquiries || [];
+}
+
+function Beneficiaries({ currentUser }) {
+  const [beneficiaries, setBeneficiaries] = useState([]);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [form, setForm] = useState(initialForm);
+  const [selectedBeneficiary, setSelectedBeneficiary] = useState(null);
+  const [inquiries, setInquiries] = useState([]);
+  const [loadingInquiries, setLoadingInquiries] = useState(false);
+
+  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+  const loadBeneficiaries = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      setBeneficiaries(await fetchBeneficiaries(apiBase));
+    } catch (fetchError) {
+      setError(fetchError.message || "Failed to load beneficiaries.");
+      setBeneficiaries([]);
+    } finally {
+      setLoading(false);
     }
-    updateData(
-      { ...data, beneficiaries: [...data.beneficiaries, beneficiary] },
-      `Beneficiary ${fullName(beneficiary)} registered.`
-    )
-    resetForm()
-  }
+  };
 
-  function toggleBeneficiary(id) {
-    const beneficiaries = data.beneficiaries.map((b) => {
-      if (b.id !== id) return b
-      return { ...b, isActive: !b.isActive }
-    })
-    updateData({ ...data, beneficiaries }, 'Beneficiary status updated.')
-  }
+  useEffect(() => {
+    let isMounted = true;
 
-  function logInquiry(beneficiaryId) {
-    const id = nextId(data.inquiries)
-    const inquiry = {
-      id,
-      beneficiaryId,
-      inquiryDate: new Date().toISOString().split('T')[0],
-      status: 'Pending',
+    fetchBeneficiaries(apiBase)
+      .then((records) => {
+        if (isMounted) setBeneficiaries(records);
+      })
+      .catch((fetchError) => {
+        if (!isMounted) return;
+        setError(fetchError.message || "Failed to load beneficiaries.");
+        setBeneficiaries([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [apiBase]);
+
+  const filteredBeneficiaries = useMemo(() => {
+    return beneficiaries.filter((beneficiary) => {
+      const name = fullName({
+        firstName: beneficiary.first_name,
+        lastName: beneficiary.last_name,
+      });
+      const text = `${name} ${beneficiary.contact_number} ${beneficiary.address} ${
+        beneficiary.is_active ? "Active" : "Inactive"
+      }`;
+      return text.toLowerCase().includes(query.toLowerCase());
+    });
+  }, [beneficiaries, query]);
+
+  const resetForm = () => {
+    setForm(initialForm);
+  };
+
+  const loadInquiries = async (beneficiary) => {
+    setSelectedBeneficiary(beneficiary);
+    setLoadingInquiries(true);
+    setError("");
+
+    try {
+      setInquiries(await fetchInquiries(apiBase, beneficiary.beneficiary_id));
+    } catch (fetchError) {
+      setError(fetchError.message || "Failed to load inquiries.");
+      setInquiries([]);
+    } finally {
+      setLoadingInquiries(false);
     }
-    updateData(
-      { ...data, inquiries: [...data.inquiries, inquiry] },
-      'Milk availability inquiry logged.'
-    )
+  };
+
+  const saveBeneficiary = async (event) => {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`${apiBase}/api/beneficiaries`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          createdBy: currentUser?.id ?? currentUser?.user_id ?? null,
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(body.error || "Failed to save beneficiary.");
+      }
+
+      setMessage(
+        `Beneficiary ${fullName({
+          firstName: body.beneficiary?.first_name,
+          lastName: body.beneficiary?.last_name,
+        })} registered.`,
+      );
+      resetForm();
+      await loadBeneficiaries();
+    } catch (saveError) {
+      setError(saveError.message || "Failed to save beneficiary.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleBeneficiary = async (beneficiary) => {
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        `${apiBase}/api/beneficiaries/${beneficiary.beneficiary_id}/status`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isActive: !beneficiary.is_active }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(body.error || "Failed to update beneficiary status.");
+      }
+
+      setMessage("Beneficiary status updated.");
+      await loadBeneficiaries();
+    } catch (toggleError) {
+      setError(toggleError.message || "Failed to update beneficiary status.");
+    }
+  };
+
+  const logInquiry = async (beneficiary) => {
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(
+        `${apiBase}/api/beneficiaries/${beneficiary.beneficiary_id}/inquiries`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            loggedBy: currentUser?.id ?? currentUser?.user_id ?? null,
+          }),
+        },
+      );
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(body.error || "Failed to log inquiry.");
+      }
+
+      setMessage("Milk availability inquiry logged.");
+      if (selectedBeneficiary?.beneficiary_id === beneficiary.beneficiary_id) {
+        await loadInquiries(beneficiary);
+      }
+    } catch (inquiryError) {
+      setError(inquiryError.message || "Failed to log inquiry.");
+    }
+  };
+
+  if (loading) {
+    return <p>Loading beneficiaries...</p>;
   }
 
-  const inquiriesForSelected = selectedBeneficiary
-    ? data.inquiries.filter((i) => i.beneficiaryId === selectedBeneficiary.id)
-    : []
+  const selectedName = selectedBeneficiary
+    ? fullName({
+        firstName: selectedBeneficiary.first_name,
+        lastName: selectedBeneficiary.last_name,
+      })
+    : "";
 
   return (
     <section>
       <h2>Beneficiary Management</h2>
+      {error && <p className="message">{error}</p>}
+      {message && <p className="message">{message}</p>}
 
       <form onSubmit={saveBeneficiary}>
-        <label>First Name <input required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} /></label>
-        <label>Last Name <input required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} /></label>
-        <label>Contact Number <input required value={form.contactNumber} onChange={(e) => setForm({ ...form, contactNumber: e.target.value })} /></label>
-        <label>Address <textarea required value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></label>
-        <button type="submit">Save Beneficiary</button>
+        <label>
+          First Name{" "}
+          <input
+            required
+            value={form.firstName}
+            onChange={(event) => setForm({ ...form, firstName: event.target.value })}
+          />
+        </label>
+        <label>
+          Last Name{" "}
+          <input
+            required
+            value={form.lastName}
+            onChange={(event) => setForm({ ...form, lastName: event.target.value })}
+          />
+        </label>
+        <label>
+          Contact Number{" "}
+          <input
+            required
+            value={form.contactNumber}
+            onChange={(event) => setForm({ ...form, contactNumber: event.target.value })}
+          />
+        </label>
+        <label>
+          Address{" "}
+          <textarea
+            required
+            value={form.address}
+            onChange={(event) => setForm({ ...form, address: event.target.value })}
+          />
+        </label>
+        <button type="submit" disabled={saving}>
+          {saving ? "Saving..." : "Save Beneficiary"}
+        </button>
       </form>
 
       <h3>Beneficiary List</h3>
-      <label>Search <input value={query} onChange={(e) => setQuery(e.target.value)} /></label>
+      <label>
+        Search{" "}
+        <input value={query} onChange={(event) => setQuery(event.target.value)} />
+      </label>
       <Table
-        headers={['Name', 'Contact', 'Address', 'Status', 'Actions']}
-        rows={filteredBeneficiaries.map((b) => [
-          fullName(b),
-          b.contactNumber,
-          b.address,
-          b.isActive ? 'Active' : 'Inactive',
-          <span key={b.id}>
-            <button type="button" onClick={() => toggleBeneficiary(b.id)}>
-              {b.isActive ? 'Deactivate' : 'Activate'}
-            </button>
-            {' '}
-            <button type="button" onClick={() => setSelectedBeneficiary(b)}>
+        headers={["Name", "Contact", "Address", "Status", "Actions"]}
+        rows={filteredBeneficiaries.map((beneficiary) => [
+          fullName({
+            firstName: beneficiary.first_name,
+            lastName: beneficiary.last_name,
+          }),
+          beneficiary.contact_number,
+          beneficiary.address,
+          beneficiary.is_active ? "Active" : "Inactive",
+          <span key={beneficiary.beneficiary_id}>
+            <button type="button" onClick={() => toggleBeneficiary(beneficiary)}>
+              {beneficiary.is_active ? "Deactivate" : "Activate"}
+            </button>{" "}
+            <button type="button" onClick={() => loadInquiries(beneficiary)}>
               View Inquiries
-            </button>
-            {' '}
-            <button type="button" onClick={() => logInquiry(b.id)}>
+            </button>{" "}
+            <button type="button" onClick={() => logInquiry(beneficiary)}>
               Log Inquiry
             </button>
           </span>,
@@ -106,20 +292,31 @@ function Beneficiaries({ data, updateData }) {
 
       {selectedBeneficiary && (
         <div>
-          <h3>Inquiry History — {fullName(selectedBeneficiary)}</h3>
-          <button type="button" onClick={() => setSelectedBeneficiary(null)}>Close</button>
-          {inquiriesForSelected.length === 0 ? (
-            <p>No inquiries logged yet.</p>
+          <h3>Inquiry History - {selectedName}</h3>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedBeneficiary(null);
+              setInquiries([]);
+            }}
+          >
+            Close
+          </button>
+          {loadingInquiries ? (
+            <p>Loading inquiries...</p>
           ) : (
             <Table
-              headers={['Inquiry Date', 'Status']}
-              rows={inquiriesForSelected.map((i) => [i.inquiryDate, i.status])}
+              headers={["Inquiry Date", "Status"]}
+              rows={inquiries.map((inquiry) => [
+                inquiry.inquiry_date,
+                inquiry.status,
+              ])}
             />
           )}
         </div>
       )}
     </section>
-  )
+  );
 }
 
-export default Beneficiaries
+export default Beneficiaries;
