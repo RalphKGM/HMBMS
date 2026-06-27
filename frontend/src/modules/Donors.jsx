@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import Table from "../components/Table";
-import { fullName } from "../utils/helpers";
 
 const initialForm = {
   firstName: "",
@@ -22,11 +21,28 @@ async function fetchDonors(apiBase) {
   return body.donors || [];
 }
 
+function donorName(donor) {
+  return [donor.first_name, donor.middle_name, donor.last_name].filter(Boolean).join(" ") || "-";
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+
+  return new Date(value).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 function Donors({ currentUser }) {
   const [donors, setDonors] = useState([]);
   const [query, setQuery] = useState("");
   const [form, setForm] = useState(initialForm);
   const [editingDonorId, setEditingDonorId] = useState(null);
+  const [editingDonor, setEditingDonor] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [confirmStatusChange, setConfirmStatusChange] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -71,15 +87,71 @@ function Donors({ currentUser }) {
 
   const filteredDonors = useMemo(() => {
     return donors.filter((donor) => {
-      const text = `${donor.dtn} ${fullName(donor)} ${donor.status}`;
+      const text = `${donor.dtn} ${donorName(donor)} ${donor.contact_number} ${donor.status}`;
       return text.toLowerCase().includes(query.toLowerCase());
     });
   }, [donors, query]);
 
+  const donorStats = useMemo(() => {
+    const activeDonors = donors.filter((donor) => donor.status === "Active").length;
+    const inactiveDonors = donors.filter((donor) => donor.status !== "Active").length;
+
+    return [
+      { label: "Total Donors", value: donors.length, note: "Registered donor records" },
+      { label: "Active Donors", value: activeDonors, note: "Eligible for transactions" },
+      { label: "Inactive Donors", value: inactiveDonors, note: "Temporarily deactivated" },
+    ];
+  }, [donors]);
+
+  const donorRows = useMemo(() => {
+    return filteredDonors.map((donor) => [
+      <span key={`dtn-${donor.donor_id}`} className="font-semibold text-slate-900">
+        {donor.dtn}
+      </span>,
+      donorName(donor),
+      donor.contact_number || "-",
+      formatDate(donor.birthdate),
+      <span
+        key={`status-${donor.donor_id}`}
+        className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
+          donor.status === "Active"
+            ? "bg-emerald-50 text-emerald-700"
+            : "bg-slate-100 text-slate-500"
+        }`}
+      >
+        {donor.status === "Active" ? "Active" : "Inactive"}
+      </span>,
+      <button
+        key={`edit-${donor.donor_id}`}
+        type="button"
+        className="min-h-0 border-slate-300 px-3 py-1.5 text-xs"
+        onClick={() => startEdit(donor)}
+      >
+        Edit
+      </button>,
+    ]);
+  }, [filteredDonors]);
+
   const resetForm = () => {
     setForm(initialForm);
     setEditingDonorId(null);
+    setEditingDonor(null);
+    setConfirmStatusChange(false);
   }
+
+  const openAddDonorModal = () => {
+    setError("");
+    setMessage("");
+    resetForm();
+    setShowForm(true);
+  };
+
+  const closeDonorModal = () => {
+    if (saving) return;
+    setError("");
+    resetForm();
+    setShowForm(false);
+  };
 
   const saveDonor = async (event) => {
     event.preventDefault();
@@ -112,6 +184,7 @@ function Donors({ currentUser }) {
           : `Donor saved. Generated DTN: ${body.donor?.dtn || "N/A"}`,
       );
       resetForm();
+      setShowForm(false);
       await loadDonors();
     } catch (saveError) {
       setError(saveError.message || "Failed to save donor.");
@@ -140,6 +213,9 @@ function Donors({ currentUser }) {
       }
 
       setMessage("Donor status updated.");
+      setConfirmStatusChange(false);
+      resetForm();
+      setShowForm(false);
       await loadDonors();
     } catch (toggleError) {
       setError(toggleError.message || "Failed to update donor status.");
@@ -147,6 +223,10 @@ function Donors({ currentUser }) {
   }
 
   const startEdit = (donor) => {
+    setError("");
+    setMessage("");
+    setConfirmStatusChange(false);
+    setEditingDonor(donor);
     setEditingDonorId(donor.donor_id);
     setForm({
       firstName: donor.first_name || "",
@@ -156,105 +236,251 @@ function Donors({ currentUser }) {
       address: donor.address || "",
       contactNumber: donor.contact_number || "",
     });
-    setMessage("");
-    setError("");
+    setShowForm(true);
   };
 
   if (loading) {
-    return <p>Loading donors...</p>;
+    return (
+      <section>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p>Loading donors...</p>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <section>
-      <h2>Donor Management</h2>
-      {error && <p className="message">{error}</p>}
-      {message && <p className="message">{message}</p>}
-      {editingDonorId && (
-        <p className="message">Editing donor profile. Save to update the existing record.</p>
-      )}
-      <form onSubmit={saveDonor}>
-        <label>
-          First Name{" "}
-          <input
-            required
-            value={form.firstName}
-            onChange={(event) => setForm({ ...form, firstName: event.target.value })}
-          />
-        </label>
-        <label>
-          Middle Name{" "}
-          <input
-            value={form.middleName}
-            onChange={(event) => setForm({ ...form, middleName: event.target.value })}
-          />
-        </label>
-        <label>
-          Last Name{" "}
-          <input
-            required
-            value={form.lastName}
-            onChange={(event) => setForm({ ...form, lastName: event.target.value })}
-          />
-        </label>
-        <label>
-          Birthdate{" "}
-          <input
-            required
-            type="date"
-            value={form.birthdate}
-            onChange={(event) => setForm({ ...form, birthdate: event.target.value })}
-          />
-        </label>
-        <label>
-          Contact Number{" "}
-          <input
-            required
-            value={form.contactNumber}
-            onChange={(event) => setForm({ ...form, contactNumber: event.target.value })}
-          />
-        </label>
-        <label>
-          Address{" "}
-          <textarea
-            required
-            value={form.address}
-            onChange={(event) => setForm({ ...form, address: event.target.value })}
-          />
-        </label>
-        <button type="submit" disabled={saving}>
-          {saving ? "Saving..." : "Save Donor"}
-        </button>
-      </form>
+    <section className="gap-5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="section-header">
+          <div>
+            <h2>Donor Management</h2>
+            <p className="mt-2 max-w-2xl text-sm">
+              Review donor records, create new donor profiles, and manage active status.
+            </p>
+          </div>
+        </div>
+      </div>
 
-      <h3>Donor List</h3>
-      <label>
-        Search{" "}
-        <input value={query} onChange={(event) => setQuery(event.target.value)} />
-      </label>
-      <Table
-        headers={["DTN", "Name", "Contact", "Status", "Actions"]}
-        rows={filteredDonors.map((donor) => [
-          donor.dtn,
-          fullName({
-            firstName: donor.first_name,
-            middleName: donor.middle_name,
-            lastName: donor.last_name,
-          }),
-          donor.contact_number,
-          donor.status,
-          <span key={donor.donor_id}>
-            <button type="button" onClick={() => startEdit(donor)}>
-              Edit
-            </button>{" "}
+      <div className="grid gap-4 md:grid-cols-3">
+        {donorStats.map((stat) => (
+          <article
+            key={stat.label}
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+              {stat.label}
+            </p>
+            <p className="mt-3 text-3xl font-semibold text-[#003b90]">{stat.value}</p>
+            <p className="mt-1 text-sm text-slate-500">{stat.note}</p>
+          </article>
+        ))}
+      </div>
+
+      {message && <p className="message">{message}</p>}
+      {error && !showForm && <p className="message">{error}</p>}
+
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="section-header mb-4">
+              <div>
+                <h3>{editingDonorId ? "Edit Donor Profile" : "New Donor Profile"}</h3>
+                <p className="mt-1 text-sm">
+                  {editingDonorId
+                    ? "Update donor information or manage the donor account status."
+                    : "Encode the donor information to generate a donor tracking number."}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="h-10 w-10 rounded-full border-slate-200 bg-slate-50 p-0 text-lg text-slate-600 hover:bg-slate-100"
+                onClick={closeDonorModal}
+                aria-label="Close donor modal"
+              >
+                X
+              </button>
+            </div>
+
+            {error && <p className="message mb-4">{error}</p>}
+
+            <form onSubmit={saveDonor}>
+              <label>
+                First Name
+                <input
+                  required
+                  value={form.firstName}
+                  onChange={(event) => setForm({ ...form, firstName: event.target.value })}
+                  placeholder="Given name"
+                />
+              </label>
+              <label>
+                Middle Name
+                <input
+                  value={form.middleName}
+                  onChange={(event) => setForm({ ...form, middleName: event.target.value })}
+                  placeholder="Optional"
+                />
+              </label>
+              <label>
+                Last Name
+                <input
+                  required
+                  value={form.lastName}
+                  onChange={(event) => setForm({ ...form, lastName: event.target.value })}
+                  placeholder="Family name"
+                />
+              </label>
+              <label>
+                Birthdate
+                <input
+                  required
+                  type="date"
+                  value={form.birthdate}
+                  onChange={(event) => setForm({ ...form, birthdate: event.target.value })}
+                />
+              </label>
+              <label>
+                Contact Number
+                <input
+                  required
+                  value={form.contactNumber}
+                  onChange={(event) => setForm({ ...form, contactNumber: event.target.value })}
+                  placeholder="Phone number"
+                />
+              </label>
+              <label>
+                Address
+                <textarea
+                  required
+                  value={form.address}
+                  onChange={(event) => setForm({ ...form, address: event.target.value })}
+                  placeholder="Complete address"
+                />
+              </label>
+              <div className="flex flex-wrap justify-end gap-3 sm:col-span-2 xl:col-span-3">
+                <button type="button" onClick={closeDonorModal} disabled={saving}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
+                  disabled={saving}
+                >
+                  {saving ? "Saving..." : editingDonorId ? "Update Donor" : "Save Donor"}
+                </button>
+              </div>
+            </form>
+
+            {editingDonor && (
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="section-header">
+                  <div>
+                    <h3 className="text-base">Donor Status</h3>
+                    <p className="mt-1 text-sm">
+                      Current status:{" "}
+                      <span
+                        className={`font-bold ${
+                          editingDonor.status === "Active" ? "text-emerald-700" : "text-slate-500"
+                        }`}
+                      >
+                        {editingDonor.status === "Active" ? "Active" : "Inactive"}
+                      </span>
+                    </p>
+                  </div>
+                  {!confirmStatusChange && (
+                    <button
+                      type="button"
+                      className={`${
+                        editingDonor.status === "Active"
+                          ? "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100"
+                      }`}
+                      disabled={saving}
+                      onClick={() => setConfirmStatusChange(true)}
+                    >
+                      {editingDonor.status === "Active" ? "Deactivate Donor" : "Activate Donor"}
+                    </button>
+                  )}
+                </div>
+
+                {confirmStatusChange && (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <p className="font-semibold text-amber-900">
+                      {editingDonor.status === "Active"
+                        ? `Deactivate ${donorName(editingDonor)}?`
+                        : `Activate ${donorName(editingDonor)}?`}
+                    </p>
+                    <p className="mt-1 text-sm text-amber-800">
+                      {editingDonor.status === "Active"
+                        ? "Inactive donors will remain in records but should not be selected for new collection workflows."
+                        : "Active donors can be selected again for milk collection workflows."}
+                    </p>
+                    <div className="mt-4 flex flex-wrap justify-end gap-3">
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => setConfirmStatusChange(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className={`${
+                          editingDonor.status === "Active"
+                            ? "border-rose-600 bg-rose-600 text-white hover:border-rose-700 hover:bg-rose-700"
+                            : "border-emerald-600 bg-emerald-600 text-white hover:border-emerald-700 hover:bg-emerald-700"
+                        }`}
+                        disabled={saving}
+                        onClick={() => toggleDonor(editingDonor.donor_id, editingDonor.status)}
+                      >
+                        {saving
+                          ? "Saving..."
+                          : editingDonor.status === "Active"
+                            ? "Yes, Deactivate"
+                            : "Yes, Activate"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="section-header mb-4">
+          <div>
+            <h3>Donor List</h3>
+            <p className="mt-1 text-sm">View donor profiles and open records for editing.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+              {filteredDonors.length} {filteredDonors.length === 1 ? "record" : "records"}
+            </span>
             <button
-              onClick={() => toggleDonor(donor.donor_id, donor.status)}
               type="button"
+              className="border-blue-600 bg-blue-600 px-4 text-white hover:border-blue-700 hover:bg-blue-700"
+              onClick={openAddDonorModal}
             >
-              {donor.status === "Active" ? "Deactivate" : "Activate"}
+              Add Donor
             </button>
-          </span>,
-        ])}
-      />
+          </div>
+        </div>
+        <label className="mb-4">
+          Search
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search by DTN, name, contact, or status"
+          />
+        </label>
+        <Table
+          headers={["DTN", "Name", "Contact", "Birthdate", "Status", "Action"]}
+          rows={donorRows}
+        />
+      </div>
     </section>
   );
 }
