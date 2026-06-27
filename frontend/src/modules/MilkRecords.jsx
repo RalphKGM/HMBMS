@@ -117,8 +117,23 @@ function MilkRecords({ data, updateData }) {
       ? collections.map((item) => (item.batchId === batchId ? collection : item))
       : [...collections, collection]
 
+    const nextPasteurizationRecords = existingBatch
+      ? data.pasteurizationRecords || []
+      : [
+          ...(data.pasteurizationRecords || []),
+          {
+            id: nextId(data.pasteurizationRecords || []),
+            batchId,
+            preTestResult: null,
+            pasteurizationDate: null,
+            postTestResult: null,
+            status: 'Pending Lab',
+            remarks: '',
+          },
+        ]
+
     updateData(
-      { ...data, batches: nextBatches, milkCollections: nextCollections },
+      { ...data, batches: nextBatches, milkCollections: nextCollections, pasteurizationRecords: nextPasteurizationRecords },
       existingBatch ? 'Milk record updated.' : 'Milk record saved.'
     )
     resetForm()

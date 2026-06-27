@@ -91,6 +91,26 @@ export const seedData = {
       collectedBy: 3,
     },
   ],
+  pasteurizationRecords: [
+    {
+      id: 1,
+      batchId: 1,
+      preTestResult: null,
+      pasteurizationDate: null,
+      postTestResult: null,
+      status: 'Available',
+      remarks: '',
+    },
+    {
+      id: 2,
+      batchId: 2,
+      preTestResult: null,
+      pasteurizationDate: null,
+      postTestResult: null,
+      status: 'Pending Lab',
+      remarks: '',
+    },
+  ],
   inquiries: [{
     id: 1,
     beneficiaryId: 2,
@@ -112,5 +132,6 @@ export const seedData = {
       transactionDate: '2026-04-30',
     },
   ],
+  disposalRecords: [],
   smsLogs: [],
 }

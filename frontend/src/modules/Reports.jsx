@@ -36,9 +36,22 @@ function Reports({ data }) {
       }),
     },
     disposal: {
-      title: 'Disposal Report',
-      headers: ['Batch Number', 'Status', 'Remaining Volume'],
-      rows: data.batches.filter((batch) => batch.status === 'Disposed').map((batch) => [batch.batchNumber, batch.status, `${batch.availableVolume} mL`]),
+      title: 'Disposal History Report',
+      headers: ['Batch Number', 'Donor(s)', 'Reason', 'Disposed By', 'Date', 'Disposed Volume'],
+      rows: (data.disposalRecords || []).map((record) => {
+        const batch = data.batches.find((item) => item.id === record.batchId)
+        const collection = (data.milkCollections || []).find((item) => item.batchId === record.batchId)
+        const donor = data.donors.find((item) => item.id === collection?.donorId)
+        const disposedBy = data.users.find((user) => user.id === Number(record.disposedBy))
+        return [
+          batch?.batchNumber || 'Unknown',
+          fullName(donor),
+          record.reason,
+          disposedBy ? `${disposedBy.name} (${disposedBy.role})` : '-',
+          record.disposalDate,
+          `${Number(record.beforeDisposalVolume || 0)} mL`,
+        ]
+      }),
     },
     sms: {
       title: 'SMS Report',
@@ -63,7 +76,7 @@ function Reports({ data }) {
           <option value="milk">Milk Collection Report</option>
           <option value="pasteurization">Pasteurization Report</option>
           <option value="dispensing">Dispensing Report</option>
-          <option value="disposal">Disposal Report</option>
+          <option value="disposal">Disposal History Report</option>
           <option value="sms">SMS Report</option>
         </select>
       </label>

@@ -4,9 +4,9 @@ function Dashboard({ data }) {
   const availableMilk = data.batches
     .filter((batch) => batch.status === 'Available')
     .reduce((total, batch) => total + Number(batch.availableVolume), 0)
+  const availableBatches = data.batches.filter((batch) => batch.status === 'Available').length
+  const disposedBatches = data.batches.filter((batch) => batch.status === 'Disposed')
   const pendingInquiries = data.inquiries.filter((inquiry) => inquiry.status === 'Pending').length
-  const notifiedInquiries = data.inquiries.filter((inquiry) => inquiry.status === 'Notified').length
-  const closedInquiries = data.inquiries.filter((inquiry) => inquiry.status === 'Closed').length
   const lowInventory = data.batches.filter((batch) => batch.status === 'Available' && Number(batch.availableVolume) <= 250)
   const expiringBatches = data.batches.filter((batch) => batch.expirationDate)
 
@@ -16,10 +16,12 @@ function Dashboard({ data }) {
     ['Total Beneficiaries', data.beneficiaries.length],
     ['Active Beneficiaries', data.beneficiaries.filter((beneficiary) => beneficiary.isActive !== false).length],
     ['Available Milk', `${availableMilk} mL`],
+    ['Available Batches', availableBatches],
     ['Pending Pasteurization', data.batches.filter((batch) => batch.status === 'Pending Pasteurization' || batch.status === 'Pending Lab').length],
     ['Pending Inquiries', pendingInquiries],
     ['Milk Dispensed', data.transactions.reduce((total, transaction) => total + Number(transaction.volumeDispensed || 0), 0)],
-    ['Milk Disposed', data.batches.filter((batch) => batch.status === 'Disposed').reduce((total, batch) => total + Number(batch.availableVolume || 0), 0)],
+    ['Disposed Milk', `${disposedBatches.length} batches / ${disposedBatches.reduce((total, batch) => total + Number(batch.totalVolume || 0), 0)} mL`],
+    ['SMS Sent', data.smsLogs.length],
   ]
 
   const recentActivities = [
