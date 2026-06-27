@@ -2,7 +2,7 @@ Backend for HMBMS
 
 Setup
 
-1. Copy environment variables into `.env` at the `backend/` folder root:
+1. Copy `.env.example` to `.env` at the `backend/` folder root:
 
 ```
 SUPABASE_URL=https://your-project.supabase.co
@@ -18,7 +18,12 @@ npm install
 npm run start
 ```
 
+3. Run `frontend/supabase/schema.sql` in the Supabase SQL editor.
+
 API
+
+- GET /api/setup/status
+  - checks whether Supabase is configured and the required tables exist
 
 - POST /api/auth/login
   - body: { username, password }
@@ -26,4 +31,4 @@ API
 
 Notes
 
-- This example validates plaintext passwords against the `users` table in Supabase. For production, use hashed passwords and a proper auth flow.
+- New users are stored with bcrypt password hashes. Plaintext password checks are only kept as a fallback for older demo rows that may already exist in Supabase.
