@@ -1,6 +1,3 @@
--- Optional demo data for class presentation.
--- Run this after schema.sql if you want sample records on the dashboard.
-
 insert into donors (
   dtn,
   first_name,
