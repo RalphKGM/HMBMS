@@ -10,7 +10,6 @@ const initialForm = {
   postTestResult: "",
   postTestDate: today(),
   expirationDate: "",
-  remarks: "",
 };
 
 async function fetchPasteurizationData(apiBase) {
@@ -108,7 +107,6 @@ function Pasteurization({ currentUser }) {
       preTestDate: today(),
       postTestDate: today(),
       expirationDate: batch.expiration_date || "",
-      remarks: "",
       preTestResult: current.preTestResult || "",
     }));
     setError("");
@@ -145,7 +143,6 @@ function Pasteurization({ currentUser }) {
           batchId: selectedBatchId,
           preTestResult: form.preTestResult,
           preTestDate: form.preTestDate,
-          remarks: form.remarks,
           recordedBy: currentUser?.id ?? currentUser?.user_id ?? null,
         }),
       });
@@ -202,7 +199,6 @@ function Pasteurization({ currentUser }) {
           postTestResult: form.postTestResult,
           postTestDate: form.postTestDate,
           expirationDate: form.postTestResult === "Passed" ? form.expirationDate : "",
-          remarks: form.remarks,
           recordedBy: currentUser?.id ?? currentUser?.user_id ?? null,
         }),
       });
@@ -267,18 +263,28 @@ function Pasteurization({ currentUser }) {
       {message && <p className="message">{message}</p>}
 
       <Table
-        headers={["Batch Number", "Donor", "Collection Date", "Current Status", "Actions"]}
+        headers={["Batch Number", "Stage", "Last Test", "Next Step", "Action"]}
         rows={workQueue.map((record) => {
           const batch = batches.find((item) => item.batch_id === record.batch_id);
+          const nextStep =
+            batch?.status === "Pending Lab"
+              ? "Review pre-test"
+              : batch?.status === "Pending Pasteurization"
+                ? "Complete pasteurization"
+                : "View batch";
 
           return [
             batch?.batch_number || batchNames[record.batch_id] || "Unknown",
             batch?.status || "Unknown",
-            record.pre_test_date || "-",
-            record.post_test_result || batch?.status || "Unknown",
+            record.post_test_result
+              ? `${record.post_test_result} (${record.post_test_date || "No date"})`
+              : record.pre_test_result
+                ? `${record.pre_test_result} (${record.pre_test_date || "No date"})`
+                : "Not recorded",
+            nextStep,
             <span key={record.pasteurization_id}>
               <button type="button" onClick={() => handleQueueAction(batch, "info")}>
-                Info
+                Process Batch
               </button>{" "}
             </span>,
           ];
@@ -287,13 +293,14 @@ function Pasteurization({ currentUser }) {
 
       {selectedBatch && (
         <div>
-          <h3>Workflow - {selectedBatch.batch_number}</h3>
-          <p>Current Status: {selectedBatch.status}</p>
-          <p>Pre-test: {selectedRecord?.pre_test_result || "-"}</p>
-          <p>Post-test: {selectedRecord?.post_test_result || "-"}</p>
+          <h3>Batch Workflow - {selectedBatch.batch_number}</h3>
+          <p>Current stage: {selectedBatch.status}</p>
+          <p>Pre-test result: {selectedRecord?.pre_test_result || "Not recorded yet"}</p>
+          <p>Post-test result: {selectedRecord?.post_test_result || "Not recorded yet"}</p>
 
           {selectedBatch.status === "Pending Lab" && (
             <form onSubmit={savePreTest}>
+              <p>Select whether this batch passed or failed the pre-test.</p>
               <label>
                 Pre-Test Result
                 <select
@@ -312,6 +319,7 @@ function Pasteurization({ currentUser }) {
               <label>
                 Remarks
                 <textarea
+                  placeholder="Optional notes for the batch"
                   value={form.remarks}
                   onChange={(event) => setForm({ ...form, remarks: event.target.value })}
                 />
@@ -324,6 +332,7 @@ function Pasteurization({ currentUser }) {
 
           {selectedBatch.status === "Pending Pasteurization" && (
             <form onSubmit={savePasteurization}>
+              <p>Complete the pasteurization step and set the final result.</p>
               <label>
                 Pasteurization Date
                 <input
@@ -350,6 +359,7 @@ function Pasteurization({ currentUser }) {
               <label>
                 Remarks
                 <textarea
+                  placeholder="Optional notes for the batch"
                   value={form.remarks}
                   onChange={(event) => setForm({ ...form, remarks: event.target.value })}
                 />
@@ -362,14 +372,14 @@ function Pasteurization({ currentUser }) {
 
           {selectedBatch.status === "Pending Lab" && (
             <div>
-              <h4>Batch Actions</h4>
+              <h4>Quick Actions</h4>
               <button
                 type="button"
                 onClick={() => {
                   setForm((current) => ({ ...current, preTestResult: "Passed" }));
                 }}
               >
-                Set Pre-Test Passed
+                Mark Pre-Test Passed
               </button>{" "}
               <button
                 type="button"
@@ -377,7 +387,7 @@ function Pasteurization({ currentUser }) {
                   setForm((current) => ({ ...current, preTestResult: "Failed" }));
                 }}
               >
-                Set Pre-Test Failed
+                Mark Pre-Test Failed
               </button>
             </div>
           )}
