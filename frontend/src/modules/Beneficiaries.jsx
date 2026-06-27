@@ -1,8 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Table from '../components/Table'
-import { fullName, nextId } from '../utils/helpers'
+import { fullName } from '../utils/helpers'
+import { 
+  fetchBeneficiariesData, 
+  dbInsertBeneficiary, 
+  dbToggleBeneficiaryStatus, 
+  dbInsertInquiry 
+} from '../lib/dataStore'
 
-function Beneficiaries({ data, updateData }) {
+function Beneficiaries({ currentUser }) { 
+  const [dbData, setDbData] = useState({ beneficiaries: [], inquiries: [] })
+  const [loading, setLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState('')
+  const [notice, setNotice] = useState('')
+  
   const [query, setQuery] = useState('')
   const [form, setForm] = useState({
     firstName: '',
@@ -12,7 +23,28 @@ function Beneficiaries({ data, updateData }) {
   })
   const [selectedBeneficiary, setSelectedBeneficiary] = useState(null)
 
-  const filteredBeneficiaries = data.beneficiaries.filter((b) => {
+  async function loadRealData() {
+    try {
+      setLoading(true)
+      const data = await fetchBeneficiariesData()
+      setDbData(data)
+    } catch (err) {
+      setErrorMsg('Failed to sync with live database: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadRealData()
+  }, [])
+
+  function triggerNotice(msg) {
+    setNotice(msg)
+    setTimeout(() => setNotice(''), 4000)
+  }
+
+  const filteredBeneficiaries = dbData.beneficiaries.filter((b) => {
     const text = `${fullName(b)} ${b.contactNumber} ${b.address} ${b.isActive ? 'Active' : 'Inactive'}`
     return text.toLowerCase().includes(query.toLowerCase())
   })
@@ -26,50 +58,52 @@ function Beneficiaries({ data, updateData }) {
     })
   }
 
-  function saveBeneficiary(event) {
+  async function saveBeneficiary(event) {
     event.preventDefault()
-    const id = nextId(data.beneficiaries)
-    const beneficiary = {
-      id,
-      ...form,
-      isActive: true,
+    try {
+      const currentUserId = currentUser?.user_id || null
+      await dbInsertBeneficiary(form, currentUserId)
+      triggerNotice(`Beneficiary ${form.firstName} ${form.lastName} registered successfully.`)
+      resetForm()
+      await loadRealData() 
+    } catch (err) {
+      setErrorMsg('Could not save beneficiary: ' + err.message)
     }
-    updateData(
-      { ...data, beneficiaries: [...data.beneficiaries, beneficiary] },
-      `Beneficiary ${fullName(beneficiary)} registered.`
-    )
-    resetForm()
   }
 
-  function toggleBeneficiary(id) {
-    const beneficiaries = data.beneficiaries.map((b) => {
-      if (b.id !== id) return b
-      return { ...b, isActive: !b.isActive }
-    })
-    updateData({ ...data, beneficiaries }, 'Beneficiary status updated.')
+  async function toggleBeneficiary(id, currentStatus, name) {
+    try {
+      await dbToggleBeneficiaryStatus(id, currentStatus)
+      triggerNotice(`Beneficiary ${name} status updated.`)
+      await loadRealData()
+    } catch (err) {
+      setErrorMsg('Could not update status: ' + err.message)
+    }
   }
 
-  function logInquiry(beneficiaryId) {
-    const id = nextId(data.inquiries)
-    const inquiry = {
-      id,
-      beneficiaryId,
-      inquiryDate: new Date().toISOString().split('T')[0],
-      status: 'Pending',
+  async function logInquiry(beneficiaryId) {
+    try {
+      const currentUserId = currentUser?.user_id || null
+      await dbInsertInquiry(beneficiaryId, currentUserId)
+      triggerNotice('Milk availability inquiry logged.')
+      await loadRealData()
+    } catch (err) {
+      setErrorMsg('Could not log inquiry: ' + err.message)
     }
-    updateData(
-      { ...data, inquiries: [...data.inquiries, inquiry] },
-      'Milk availability inquiry logged.'
-    )
   }
 
   const inquiriesForSelected = selectedBeneficiary
-    ? data.inquiries.filter((i) => i.beneficiaryId === selectedBeneficiary.id)
+    ? dbData.inquiries.filter((i) => i.beneficiaryId === selectedBeneficiary.id)
     : []
+
+  if (loading) return <p>Loading matching database collections...</p>
 
   return (
     <section>
       <h2>Beneficiary Management</h2>
+
+      {errorMsg && <p style={{ color: 'red', fontWeight: 'bold' }}>{errorMsg}</p>}
+      {notice && <p style={{ color: 'green', backgroundColor: '#e6ffe6', padding: '8px' }}>{notice}</p>}
 
       <form onSubmit={saveBeneficiary}>
         <label>First Name <input required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} /></label>
@@ -89,7 +123,7 @@ function Beneficiaries({ data, updateData }) {
           b.address,
           b.isActive ? 'Active' : 'Inactive',
           <span key={b.id}>
-            <button type="button" onClick={() => toggleBeneficiary(b.id)}>
+            <button type="button" onClick={() => toggleBeneficiary(b.id, b.isActive, fullName(b))}>
               {b.isActive ? 'Deactivate' : 'Activate'}
             </button>
             {' '}
