@@ -6,6 +6,7 @@ function Login() {
   const [password, setPassword] = useState("admin123");
   const [error, setError] = useState("");
   const [setupMessage, setSetupMessage] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const { login } = useAuth();
 
   useEffect(() => {
@@ -37,11 +38,15 @@ function Login() {
   const handleLogin = (event) => {
     event.preventDefault();
     (async () => {
+      setIsLoggingIn(true);
+      setError("");
+
       try {
         await login(username, password);
-        setError("");
       } catch (err) {
         setError(err.message || "Login failed.");
+      } finally {
+        setIsLoggingIn(false);
       }
     })();
   };
@@ -65,7 +70,9 @@ function Login() {
             onChange={(event) => setPassword(event.target.value)}
           />
         </label>
-        <button type="submit">Login</button>
+        <button type="submit" disabled={isLoggingIn}>
+          {isLoggingIn ? "Logging in..." : "Login"}
+        </button>
       </form>
       {setupMessage && <p className="message">{setupMessage}</p>}
       {error && <p className="message">{error}</p>}
