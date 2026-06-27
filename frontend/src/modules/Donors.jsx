@@ -9,7 +9,6 @@ const initialForm = {
   birthdate: "",
   address: "",
   contactNumber: "",
-  collectionProgram: "Supsup Todo",
 };
 
 async function fetchDonors(apiBase) {
@@ -71,7 +70,7 @@ function Donors({ currentUser }) {
 
   const filteredDonors = useMemo(() => {
     return donors.filter((donor) => {
-      const text = `${donor.dtn} ${fullName(donor)} ${donor.collection_program} ${donor.status}`;
+      const text = `${donor.dtn} ${fullName(donor)} ${donor.status}`;
       return text.toLowerCase().includes(query.toLowerCase());
     });
   }, [donors, query]);
@@ -196,17 +195,6 @@ function Donors({ currentUser }) {
             onChange={(event) => setForm({ ...form, address: event.target.value })}
           />
         </label>
-        <label>
-          Collection Program
-          <select
-            value={form.collectionProgram}
-            onChange={(event) => setForm({ ...form, collectionProgram: event.target.value })}
-          >
-            <option value="Supsup Todo">Supsup Todo</option>
-            <option value="Mom's Act">Mom's Act</option>
-            <option value="Milky Way">Milky Way</option>
-          </select>
-        </label>
         <button type="submit" disabled={saving}>
           {saving ? "Saving..." : "Save Donor"}
         </button>
@@ -218,7 +206,7 @@ function Donors({ currentUser }) {
         <input value={query} onChange={(event) => setQuery(event.target.value)} />
       </label>
       <Table
-        headers={["DTN", "Name", "Program", "Contact", "Status", "Action"]}
+        headers={["DTN", "Name", "Contact", "Status", "Action"]}
         rows={filteredDonors.map((donor) => [
           donor.dtn,
           fullName({
@@ -226,7 +214,6 @@ function Donors({ currentUser }) {
             middleName: donor.middle_name,
             lastName: donor.last_name,
           }),
-          donor.collection_program,
           donor.contact_number,
           donor.status,
           <button

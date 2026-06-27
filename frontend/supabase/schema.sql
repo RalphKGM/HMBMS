@@ -22,7 +22,6 @@ create table if not exists donors (
   birthdate date not null,
   address text not null,
   contact_number varchar(20) not null,
-  collection_program varchar(100),
   status varchar(20) not null default 'Active' check (status in ('Active', 'Inactive')),
   created_by int references users(user_id) on delete set null,
   created_at timestamp not null default now(),

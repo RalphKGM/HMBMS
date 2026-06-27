@@ -1,7 +1,7 @@
 import { supabase, isSupabaseConfigured } from "../lib/supabase.js";
 
 const donorSelectColumns =
-  "donor_id, dtn, first_name, middle_name, last_name, birthdate, address, contact_number, collection_program, status, created_by, created_at, updated_at";
+  "donor_id, dtn, first_name, middle_name, last_name, birthdate, address, contact_number, status, created_by, created_at, updated_at";
 
 export const listDonors = async (req, res) => {
   if (!isSupabaseConfigured || !supabase) {
@@ -37,7 +37,6 @@ export const createDonor = async (req, res) => {
     birthdate,
     address,
     contactNumber,
-    collectionProgram,
     createdBy,
   } = req.body || {};
 
@@ -58,7 +57,6 @@ export const createDonor = async (req, res) => {
         birthdate,
         address,
         contact_number: contactNumber,
-        collection_program: collectionProgram || null,
         created_by: createdBy || null,
       })
       .select(donorSelectColumns)
