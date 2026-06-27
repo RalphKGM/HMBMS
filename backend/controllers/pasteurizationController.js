@@ -136,6 +136,41 @@ export const savePasteurizationRecord = async (req, res) => {
       return res.status(500).json({ error: batchUpdateError.message });
     }
 
+    let disposal = null;
+    if (preTestResult === "Failed") {
+      const { data: disposalData, error: disposalError } = await supabase
+        .from("disposal_records")
+        .insert({
+          batch_id: parsedBatchId,
+          disposal_date: preTestDate,
+          reason: "Failed pre-test",
+          disposed_by: recordedBy || null,
+        })
+        .select(disposalSelectColumns)
+        .single();
+
+      if (disposalError) {
+        return res.status(500).json({ error: disposalError.message });
+      }
+
+      const { data: disposedBatch, error: disposeBatchError } = await supabase
+        .from("milk_batches")
+        .update({
+          status: "Disposed",
+          available_volume: 0,
+        })
+        .eq("batch_id", parsedBatchId)
+        .select(batchSelectColumns)
+        .single();
+
+      if (disposeBatchError) {
+        return res.status(500).json({ error: disposeBatchError.message });
+      }
+
+      disposal = disposalData;
+      return res.status(201).json({ record, batch: disposedBatch, disposal });
+    }
+
     if (updatedBatch?.status === "Available" && batch.status !== "Available") {
       try {
         await logPendingInquirySms({
@@ -147,7 +182,7 @@ export const savePasteurizationRecord = async (req, res) => {
       }
     }
 
-    return res.status(201).json({ record, batch: updatedBatch });
+    return res.status(201).json({ record, batch: updatedBatch, disposal });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });
