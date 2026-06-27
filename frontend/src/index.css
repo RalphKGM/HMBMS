@@ -1,11 +1,14 @@
-body {
-  margin: 16px;
-  font-family: Arial, sans-serif;
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  min-height: 100%;
 }
 
 button,
 input,
 select,
 textarea {
-  font-family: inherit;
+  font: inherit;
 }
