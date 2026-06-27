@@ -5,6 +5,8 @@ import { useAuth } from "./hooks/useAuth";
 import Beneficiaries from "./modules/Beneficiaries";
 import Dispensing from "./modules/Dispensing";
 import Donors from "./modules/Donors";
+import Disposal from "./modules/Disposal";
+import Inquiries from "./modules/Inquiries";
 import ManageUsers from "./modules/ManageUsers";
 import MilkRecords from "./modules/MilkRecords";
 import Pasteurization from "./modules/Pasteurization";
@@ -12,24 +14,56 @@ import Reports from "./modules/Reports";
 import SmsLog from "./modules/SmsLog";
 import "./App.css";
 
-const pages = [
-  "Manage Users",
-  "Dashboard",
-  "Donors",
-  "Beneficiaries",
-  "Milk Records",
-  "Pasteurization",
-  "Dispensing",
-  "Reports",
-  "SMS Log",
-];
+const rolePages = {
+  Admin: [
+    "Manage Users",
+    "Dashboard",
+    "Donors",
+    "Beneficiaries",
+    "Inquiries",
+    "Milk Records",
+    "Pasteurization",
+    "Disposal",
+    "Dispensing",
+    "Reports",
+    "SMS Log",
+  ],
+  Doctor: ["Dashboard", "Beneficiaries", "Inquiries", "Dispensing", "Reports", "SMS Log"],
+  Nurse: [
+    "Dashboard",
+    "Donors",
+    "Beneficiaries",
+    "Inquiries",
+    "Milk Records",
+    "Pasteurization",
+    "Disposal",
+    "Dispensing",
+    "Reports",
+    "SMS Log",
+  ],
+  Midwife: [
+    "Dashboard",
+    "Donors",
+    "Beneficiaries",
+    "Inquiries",
+    "Milk Records",
+    "Dispensing",
+    "Reports",
+    "SMS Log",
+  ],
+};
+
+function getVisiblePages(role) {
+  return rolePages[role] || rolePages.Midwife;
+}
 
 function App() {
   const [page, setPage] = useState("Dashboard");
-  const { currentUser, logout, isAdmin } = useAuth();
+  const { currentUser, logout } = useAuth();
 
-  const visiblePages = isAdmin ? pages : pages.filter((item) => item !== "Manage Users");
+  const visiblePages = getVisiblePages(currentUser?.role);
   const activePage = visiblePages.includes(page) ? page : "Dashboard";
+  const canManageUsers = currentUser?.role === "Admin";
 
   if (!currentUser) {
     return <Login />;
@@ -60,12 +94,14 @@ function App() {
         ))}
       </nav>
 
-      {activePage === "Manage Users" && isAdmin && <ManageUsers />}
+      {activePage === "Manage Users" && canManageUsers && <ManageUsers />}
       {activePage === "Dashboard" && <Dashboard />}
       {activePage === "Donors" && <Donors currentUser={currentUser} />}
       {activePage === "Beneficiaries" && <Beneficiaries currentUser={currentUser} />}
+      {activePage === "Inquiries" && <Inquiries />}
       {activePage === "Milk Records" && <MilkRecords currentUser={currentUser} />}
       {activePage === "Pasteurization" && <Pasteurization currentUser={currentUser} />}
+      {activePage === "Disposal" && <Disposal />}
       {activePage === "Dispensing" && <Dispensing currentUser={currentUser} />}
       {activePage === "Reports" && <Reports />}
       {activePage === "SMS Log" && <SmsLog currentUser={currentUser} />}

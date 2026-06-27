@@ -4,6 +4,7 @@ import {
   createBeneficiaryInquiry,
   listBeneficiaries,
   listBeneficiaryInquiries,
+  updateBeneficiary,
   updateBeneficiaryStatus,
 } from "../controllers/beneficiariesController.js";
 
@@ -11,6 +12,7 @@ const router = express.Router();
 
 router.get("/", listBeneficiaries);
 router.post("/", createBeneficiary);
+router.patch("/:beneficiaryId", updateBeneficiary);
 router.patch("/:beneficiaryId/status", updateBeneficiaryStatus);
 router.get("/:beneficiaryId/inquiries", listBeneficiaryInquiries);
 router.post("/:beneficiaryId/inquiries", createBeneficiaryInquiry);

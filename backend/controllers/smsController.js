@@ -4,10 +4,55 @@ const beneficiarySelectColumns =
   "beneficiary_id, first_name, last_name, contact_number, is_active";
 
 const inquirySelectColumns =
-  "inquiry_id, beneficiary_id, inquiry_date, status";
+  "inquiry_id, beneficiary_id, requested_volume_ml, inquiry_date, status";
 
 const smsSelectColumns =
   "sms_id, beneficiary_id, message, sent_by, sent_at, delivery_status, created_at";
+
+export const SIMULATED_AVAILABLE_MESSAGE =
+  "Milk is now available at the milk bank. Please contact staff for confirmation.";
+
+export const logPendingInquirySms = async ({ message, sentBy } = {}) => {
+  if (!isSupabaseConfigured || !supabase) {
+    throw new Error("Supabase not configured on server.");
+  }
+
+  const smsMessage = message || SIMULATED_AVAILABLE_MESSAGE;
+
+  const { data: pendingInquiries, error: inquiriesError } = await supabase
+    .from("milk_inquiries")
+    .select(inquirySelectColumns)
+    .eq("status", "Pending");
+
+  if (inquiriesError) {
+    throw new Error(inquiriesError.message);
+  }
+
+  const logs = (pendingInquiries || []).map((inquiry) => ({
+    beneficiary_id: inquiry.beneficiary_id,
+    message: smsMessage,
+    sent_by: sentBy || null,
+    delivery_status: "Sent",
+  }));
+
+  if (!logs.length) {
+    return { smsLogs: [], count: 0 };
+  }
+
+  const { data, error } = await supabase
+    .from("sms_logs")
+    .insert(logs)
+    .select(smsSelectColumns);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return {
+    smsLogs: data || [],
+    count: data?.length || 0,
+  };
+};
 
 export const listSmsData = async (req, res) => {
   if (!isSupabaseConfigured || !supabase) {
@@ -87,48 +132,11 @@ export const createSmsLog = async (req, res) => {
 };
 
 export const notifyPendingInquiries = async (req, res) => {
-  if (!isSupabaseConfigured || !supabase) {
-    return res.status(500).json({ error: "Supabase not configured on server." });
-  }
-
   const { message, sentBy } = req.body || {};
-  const smsMessage =
-    message || "Milk is now available at the milk bank. Please contact staff for confirmation.";
 
   try {
-    const { data: pendingInquiries, error: inquiriesError } = await supabase
-      .from("milk_inquiries")
-      .select(inquirySelectColumns)
-      .eq("status", "Pending");
-
-    if (inquiriesError) {
-      return res.status(500).json({ error: inquiriesError.message });
-    }
-
-    const logs = (pendingInquiries || []).map((inquiry) => ({
-      beneficiary_id: inquiry.beneficiary_id,
-      message: smsMessage,
-      sent_by: sentBy || null,
-      delivery_status: "Sent",
-    }));
-
-    if (!logs.length) {
-      return res.json({ smsLogs: [], count: 0 });
-    }
-
-    const { data, error } = await supabase
-      .from("sms_logs")
-      .insert(logs)
-      .select(smsSelectColumns);
-
-    if (error) {
-      return res.status(500).json({ error: error.message });
-    }
-
-    return res.status(201).json({
-      smsLogs: data || [],
-      count: data?.length || 0,
-    });
+    const result = await logPendingInquirySms({ message, sentBy });
+    return res.status(201).json(result);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });

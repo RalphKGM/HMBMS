@@ -22,7 +22,6 @@ create table if not exists donors (
   birthdate date not null,
   address text not null,
   contact_number varchar(20) not null,
-  collection_program varchar(100),
   status varchar(20) not null default 'Active' check (status in ('Active', 'Inactive')),
   created_by int references users(user_id) on delete set null,
   created_at timestamp not null default now(),
@@ -89,6 +88,7 @@ create table if not exists beneficiaries (
 create table if not exists milk_inquiries (
   inquiry_id serial primary key,
   beneficiary_id int not null references beneficiaries(beneficiary_id) on delete cascade,
+  requested_volume_ml decimal(8,2) check (requested_volume_ml > 0),
   inquiry_date date not null default current_date,
   status varchar(20) not null default 'Pending' check (status in ('Pending', 'Fulfilled')),
   logged_by int references users(user_id) on delete set null,

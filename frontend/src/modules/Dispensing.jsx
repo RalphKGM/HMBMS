@@ -10,6 +10,12 @@ const initialForm = {
   price: "",
 };
 
+const emptyInquiryData = {
+  inquiries: [],
+  beneficiaries: [],
+  users: [],
+};
+
 async function fetchBeneficiaries(apiBase) {
   const response = await fetch(`${apiBase}/api/beneficiaries`);
   const body = await response.json().catch(() => ({}));
@@ -46,11 +52,26 @@ async function fetchDispensingData(apiBase) {
   };
 }
 
+async function fetchPendingInquiries(apiBase) {
+  const response = await fetch(`${apiBase}/api/inquiries`);
+  const body = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(body.error || "Failed to load inquiries.");
+  }
+
+  return {
+    ...emptyInquiryData,
+    ...body,
+  };
+}
+
 function Dispensing({ currentUser }) {
   const [beneficiaries, setBeneficiaries] = useState([]);
   const [users, setUsers] = useState([]);
   const [batches, setBatches] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [inquiryData, setInquiryData] = useState(emptyInquiryData);
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -64,13 +85,18 @@ function Dispensing({ currentUser }) {
     setError("");
 
     try {
-      const data = await fetchDispensingData(apiBase);
-      setBatches(data.batches);
-      setTransactions(data.transactions);
+      const [dispensingData, pendingInquiryData] = await Promise.all([
+        fetchDispensingData(apiBase),
+        fetchPendingInquiries(apiBase),
+      ]);
+      setBatches(dispensingData.batches);
+      setTransactions(dispensingData.transactions);
+      setInquiryData(pendingInquiryData);
     } catch (fetchError) {
       setError(fetchError.message || "Failed to load dispensing data.");
       setBatches([]);
       setTransactions([]);
+      setInquiryData(emptyInquiryData);
     } finally {
       setLoading(false);
     }
@@ -83,13 +109,15 @@ function Dispensing({ currentUser }) {
       fetchBeneficiaries(apiBase),
       fetchUsers(apiBase),
       fetchDispensingData(apiBase),
+      fetchPendingInquiries(apiBase),
     ])
-      .then(([beneficiaryRecords, userRecords, dispensingData]) => {
+      .then(([beneficiaryRecords, userRecords, dispensingData, pendingInquiryData]) => {
         if (!isMounted) return;
         setBeneficiaries(beneficiaryRecords);
         setUsers(userRecords);
         setBatches(dispensingData.batches);
         setTransactions(dispensingData.transactions);
+        setInquiryData(pendingInquiryData);
         setForm((current) => ({
           ...current,
           approvedBy: userRecords.find((user) => user.role === "Doctor")?.user_id || "",
@@ -102,6 +130,7 @@ function Dispensing({ currentUser }) {
         setUsers([]);
         setBatches([]);
         setTransactions([]);
+        setInquiryData(emptyInquiryData);
       })
       .finally(() => {
         if (isMounted) setLoading(false);
@@ -131,6 +160,18 @@ function Dispensing({ currentUser }) {
 
   const doctors = users.filter((user) => user.role === "Doctor");
   const activeBeneficiaries = beneficiaries.filter((beneficiary) => beneficiary.is_active);
+  const pendingInquiries = inquiryData.inquiries.filter((inquiry) => inquiry.status === "Pending");
+
+  const useInquiry = (inquiry) => {
+    setForm((current) => ({
+      ...current,
+      beneficiaryId: String(inquiry.beneficiary_id),
+      volumeDispensed:
+        inquiry.requested_volume_ml != null ? String(inquiry.requested_volume_ml) : current.volumeDispensed,
+    }));
+    setMessage(`Loaded pending inquiry for ${beneficiaryNames[inquiry.beneficiary_id] || "beneficiary"}.`);
+    setError("");
+  };
 
   const saveTransaction = async (event) => {
     event.preventDefault();
@@ -157,7 +198,7 @@ function Dispensing({ currentUser }) {
         throw new Error(body.error || "Failed to save dispensing transaction.");
       }
 
-      setMessage("Dispensing transaction saved. Inventory updated.");
+      setMessage("Dispensing saved. Inventory was allocated across available batches.");
       setForm({
         ...initialForm,
         approvedBy: doctors[0]?.user_id || "",
@@ -196,14 +237,14 @@ function Dispensing({ currentUser }) {
             ))}
           </select>
         </label>
+        <p className="message">Milk will be auto-allocated from available batches. Batch selection is optional.</p>
         <label>
-          Available Batch
+          Preferred Batch
           <select
-            required
             value={form.batchId}
             onChange={(event) => setForm({ ...form, batchId: event.target.value })}
           >
-            <option value="">Select batch</option>
+            <option value="">Auto-allocate across batches</option>
             {batches.map((batch) => (
               <option key={batch.batch_id} value={batch.batch_id}>
                 {batch.batch_number} - {batch.available_volume} mL
@@ -249,6 +290,19 @@ function Dispensing({ currentUser }) {
           {saving ? "Saving..." : "Save Transaction"}
         </button>
       </form>
+
+      <h3>Pending Inquiries</h3>
+      <Table
+        headers={["Beneficiary", "Requested mL", "Inquiry Date", "Action"]}
+        rows={pendingInquiries.map((inquiry) => [
+          beneficiaryNames[inquiry.beneficiary_id] || `Beneficiary #${inquiry.beneficiary_id}`,
+          inquiry.requested_volume_ml != null ? `${inquiry.requested_volume_ml} mL` : "Not set",
+          inquiry.inquiry_date,
+          <button key={`use-${inquiry.inquiry_id}`} type="button" onClick={() => useInquiry(inquiry)}>
+            Use Inquiry
+          </button>,
+        ])}
+      />
 
       <h3>Transactions</h3>
       <Table

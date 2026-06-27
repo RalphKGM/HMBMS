@@ -64,31 +64,87 @@ export const createDispensingTransaction = async (req, res) => {
   }
 
   try {
-    const { data: batch, error: batchError } = await supabase
-      .from("milk_batches")
-      .select(batchSelectColumns)
-      .eq("batch_id", parsedBatchId)
-      .single();
+    const transactionsToInsert = [];
 
-    if (batchError) {
-      return res.status(500).json({ error: batchError.message });
-    }
+    if (Number.isInteger(parsedBatchId)) {
+      const { data: batch, error: batchError } = await supabase
+        .from("milk_batches")
+        .select(batchSelectColumns)
+        .eq("batch_id", parsedBatchId)
+        .single();
 
-    if (batch.status !== "Available" || Number(batch.available_volume) < volume) {
-      return res.status(400).json({ error: "Selected batch has insufficient available milk." });
-    }
+      if (batchError) {
+        return res.status(500).json({ error: batchError.message });
+      }
 
-    const { data: transaction, error: transactionError } = await supabase
-      .from("dispensing_transactions")
-      .insert({
+      if (batch.status !== "Available" || Number(batch.available_volume) < volume) {
+        return res.status(400).json({ error: "Selected batch has insufficient available milk." });
+      }
+
+      transactionsToInsert.push({
         beneficiary_id: parsedBeneficiaryId,
         batch_id: parsedBatchId,
         volume_dispensed: volume,
         price: amount,
         dispensed_by: dispensedBy || null,
-      })
-      .select(transactionSelectColumns)
-      .single();
+      });
+    } else {
+      const { data: availableBatches, error: batchesError } = await supabase
+        .from("milk_batches")
+        .select(batchSelectColumns)
+        .eq("status", "Available")
+        .gt("available_volume", 0)
+        .order("expiration_date", { ascending: true, nullsFirst: false })
+        .order("batch_id", { ascending: true });
+
+      if (batchesError) {
+        return res.status(500).json({ error: batchesError.message });
+      }
+
+      let remaining = volume;
+      for (const batch of availableBatches || []) {
+        if (remaining <= 0) break;
+
+        const available = Number(batch.available_volume || 0);
+        const allocated = Math.min(available, remaining);
+
+        if (allocated > 0) {
+          transactionsToInsert.push({
+            beneficiary_id: parsedBeneficiaryId,
+            batch_id: batch.batch_id,
+            volume_dispensed: allocated,
+            price: amount,
+            dispensed_by: dispensedBy || null,
+          });
+          remaining -= allocated;
+        }
+      }
+
+      if (remaining > 0) {
+        return res.status(400).json({
+          error: "Not enough available milk across all batches to fulfill this request.",
+        });
+      }
+    }
+
+    if (transactionsToInsert.length > 1 && amount > 0) {
+      let allocatedPrice = 0;
+      transactionsToInsert.forEach((entry, index) => {
+        if (index === transactionsToInsert.length - 1) {
+          entry.price = Number((amount - allocatedPrice).toFixed(2));
+          return;
+        }
+
+        const share = Number(((amount * entry.volume_dispensed) / volume).toFixed(2));
+        entry.price = share;
+        allocatedPrice += share;
+      });
+    }
+
+    const { data: transactions, error: transactionError } = await supabase
+      .from("dispensing_transactions")
+      .insert(transactionsToInsert)
+      .select(transactionSelectColumns);
 
     if (transactionError) {
       return res.status(500).json({ error: transactionError.message });
@@ -100,13 +156,16 @@ export const createDispensingTransaction = async (req, res) => {
       .eq("beneficiary_id", parsedBeneficiaryId)
       .eq("status", "Pending");
 
-    const { data: updatedBatch } = await supabase
+    const batchIds = [...new Set((transactions || []).map((transaction) => transaction.batch_id))];
+    const { data: updatedBatches } = await supabase
       .from("milk_batches")
       .select(batchSelectColumns)
-      .eq("batch_id", parsedBatchId)
-      .single();
+      .in("batch_id", batchIds);
 
-    return res.status(201).json({ transaction, batch: updatedBatch || null });
+    return res.status(201).json({
+      transactions: transactions || [],
+      batches: updatedBatches || [],
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });
