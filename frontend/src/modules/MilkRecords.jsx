@@ -4,7 +4,7 @@ import { fullName, today } from "../utils/helpers";
 
 const initialForm = {
   donorId: "",
-  collectionType: "Walk-in Donation",
+  collectionType: "Supsup Todo",
   collectionDate: today(),
   volumeMl: "",
 };
@@ -173,9 +173,9 @@ function MilkRecords({ currentUser }) {
             value={form.collectionType}
             onChange={(event) => setForm({ ...form, collectionType: event.target.value })}
           >
-            <option value="Walk-in Donation">Walk-in Donation</option>
-            <option value="Home Collection">Home Collection</option>
-            <option value="Hospital Partner">Hospital Partner</option>
+            <option value="Supsup Todo">Supsup Todo</option>
+            <option value="Milky Way">Milky Way</option>
+            <option value="Mom's Act">Mom's Act</option>
           </select>
         </label>
         <label>
