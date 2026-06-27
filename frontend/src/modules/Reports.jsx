@@ -24,6 +24,9 @@ function startOfPeriod(range) {
   if (range === "year") {
     return new Date(now.getFullYear(), 0, 1);
   }
+  if (range === "all") {
+    return null;
+  }
   return null;
 }
 
@@ -56,7 +59,7 @@ async function fetchReportsData(apiBase) {
 
 function Reports() {
   const [reportType, setReportType] = useState("collection");
-  const [period, setPeriod] = useState("week");
+  const [period, setPeriod] = useState("month");
   const [reportData, setReportData] = useState(emptyReportData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -198,6 +201,7 @@ function Reports() {
           <option value="week">Weekly</option>
           <option value="month">Monthly</option>
           <option value="year">Yearly</option>
+          <option value="all">All Time</option>
         </select>
       </label>
       <button onClick={() => window.print()} type="button">
@@ -205,6 +209,9 @@ function Reports() {
       </button>
       <h3>{report.title}</h3>
       <p>{report.subtitle}</p>
+      {!report.rows.length && (
+        <p className="message">No records for this view yet. Try Monthly or All Time.</p>
+      )}
       <Table headers={report.headers} rows={report.rows} />
     </section>
   );

@@ -20,7 +20,7 @@ export const getReportsData = async (req, res) => {
         .order("batch_id", { ascending: false }),
       supabase
         .from("donors")
-        .select("donor_id, dtn, first_name, middle_name, last_name, collection_program, status")
+        .select("donor_id, dtn, first_name, middle_name, last_name, status")
         .order("donor_id", { ascending: true }),
       supabase
         .from("beneficiaries")
