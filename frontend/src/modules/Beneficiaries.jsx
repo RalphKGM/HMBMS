@@ -41,6 +41,7 @@ function Beneficiaries({ currentUser }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [form, setForm] = useState(initialForm);
+  const [editingBeneficiaryId, setEditingBeneficiaryId] = useState(null);
   const [selectedBeneficiary, setSelectedBeneficiary] = useState(null);
   const [inquiries, setInquiries] = useState([]);
   const [loadingInquiries, setLoadingInquiries] = useState(false);
@@ -97,6 +98,7 @@ function Beneficiaries({ currentUser }) {
 
   const resetForm = () => {
     setForm(initialForm);
+    setEditingBeneficiaryId(null);
   };
 
   const loadInquiries = async (beneficiary) => {
@@ -121,14 +123,19 @@ function Beneficiaries({ currentUser }) {
     setMessage("");
 
     try {
-      const response = await fetch(`${apiBase}/api/beneficiaries`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          createdBy: currentUser?.id ?? currentUser?.user_id ?? null,
-        }),
-      });
+      const response = await fetch(
+        editingBeneficiaryId
+          ? `${apiBase}/api/beneficiaries/${editingBeneficiaryId}`
+          : `${apiBase}/api/beneficiaries`,
+        {
+          method: editingBeneficiaryId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...form,
+            createdBy: currentUser?.id ?? currentUser?.user_id ?? null,
+          }),
+        },
+      );
       const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
@@ -136,10 +143,12 @@ function Beneficiaries({ currentUser }) {
       }
 
       setMessage(
-        `Beneficiary ${fullName({
-          firstName: body.beneficiary?.first_name,
-          lastName: body.beneficiary?.last_name,
-        })} registered.`,
+        editingBeneficiaryId
+          ? "Beneficiary profile updated."
+          : `Beneficiary ${fullName({
+              firstName: body.beneficiary?.first_name,
+              lastName: body.beneficiary?.last_name,
+            })} registered.`,
       );
       resetForm();
       await loadBeneficiaries();
@@ -206,6 +215,18 @@ function Beneficiaries({ currentUser }) {
     }
   };
 
+  const startEdit = (beneficiary) => {
+    setEditingBeneficiaryId(beneficiary.beneficiary_id);
+    setForm({
+      firstName: beneficiary.first_name || "",
+      lastName: beneficiary.last_name || "",
+      contactNumber: beneficiary.contact_number || "",
+      address: beneficiary.address || "",
+    });
+    setMessage("");
+    setError("");
+  };
+
   if (loading) {
     return <p>Loading beneficiaries...</p>;
   }
@@ -222,6 +243,11 @@ function Beneficiaries({ currentUser }) {
       <h2>Beneficiary Management</h2>
       {error && <p className="message">{error}</p>}
       {message && <p className="message">{message}</p>}
+      {editingBeneficiaryId && (
+        <p className="message">
+          Editing beneficiary profile. Save to update the existing record.
+        </p>
+      )}
 
       <form onSubmit={saveBeneficiary}>
         <label>
@@ -277,6 +303,9 @@ function Beneficiaries({ currentUser }) {
           beneficiary.address,
           beneficiary.is_active ? "Active" : "Inactive",
           <span key={beneficiary.beneficiary_id}>
+            <button type="button" onClick={() => startEdit(beneficiary)}>
+              Edit
+            </button>{" "}
             <button type="button" onClick={() => toggleBeneficiary(beneficiary)}>
               {beneficiary.is_active ? "Deactivate" : "Activate"}
             </button>{" "}

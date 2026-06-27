@@ -73,6 +73,58 @@ export const createDonor = async (req, res) => {
   }
 };
 
+export const updateDonor = async (req, res) => {
+  if (!isSupabaseConfigured || !supabase) {
+    return res.status(500).json({ error: "Supabase not configured on server." });
+  }
+
+  const donorId = Number(req.params.donorId);
+  const {
+    firstName,
+    middleName,
+    lastName,
+    birthdate,
+    address,
+    contactNumber,
+  } = req.body || {};
+
+  if (!Number.isInteger(donorId)) {
+    return res.status(400).json({ error: "Invalid donor id." });
+  }
+
+  if (!firstName || !lastName || !birthdate || !address || !contactNumber) {
+    return res.status(400).json({
+      error:
+        "firstName, lastName, birthdate, address, and contactNumber are required.",
+    });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("donors")
+      .update({
+        first_name: firstName,
+        middle_name: middleName || null,
+        last_name: lastName,
+        birthdate,
+        address,
+        contact_number: contactNumber,
+      })
+      .eq("donor_id", donorId)
+      .select(donorSelectColumns)
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json({ donor: data });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
 export const updateDonorStatus = async (req, res) => {
   if (!isSupabaseConfigured || !supabase) {
     return res.status(500).json({ error: "Supabase not configured on server." });

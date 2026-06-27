@@ -26,6 +26,7 @@ function Donors({ currentUser }) {
   const [donors, setDonors] = useState([]);
   const [query, setQuery] = useState("");
   const [form, setForm] = useState(initialForm);
+  const [editingDonorId, setEditingDonorId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -77,6 +78,7 @@ function Donors({ currentUser }) {
 
   const resetForm = () => {
     setForm(initialForm);
+    setEditingDonorId(null);
   }
 
   const saveDonor = async (event) => {
@@ -86,14 +88,17 @@ function Donors({ currentUser }) {
     setMessage("");
 
     try {
-      const response = await fetch(`${apiBase}/api/donors`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          createdBy: currentUser?.id ?? currentUser?.user_id ?? null,
-        }),
-      });
+      const response = await fetch(
+        editingDonorId ? `${apiBase}/api/donors/${editingDonorId}` : `${apiBase}/api/donors`,
+        {
+          method: editingDonorId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...form,
+            createdBy: currentUser?.id ?? currentUser?.user_id ?? null,
+          }),
+        },
+      );
 
       const body = await response.json().catch(() => ({}));
 
@@ -101,7 +106,11 @@ function Donors({ currentUser }) {
         throw new Error(body.error || "Failed to save donor.");
       }
 
-      setMessage(`Donor saved. Generated DTN: ${body.donor?.dtn || "N/A"}`);
+      setMessage(
+        editingDonorId
+          ? "Donor profile updated."
+          : `Donor saved. Generated DTN: ${body.donor?.dtn || "N/A"}`,
+      );
       resetForm();
       await loadDonors();
     } catch (saveError) {
@@ -137,6 +146,20 @@ function Donors({ currentUser }) {
     }
   }
 
+  const startEdit = (donor) => {
+    setEditingDonorId(donor.donor_id);
+    setForm({
+      firstName: donor.first_name || "",
+      middleName: donor.middle_name || "",
+      lastName: donor.last_name || "",
+      birthdate: donor.birthdate || "",
+      address: donor.address || "",
+      contactNumber: donor.contact_number || "",
+    });
+    setMessage("");
+    setError("");
+  };
+
   if (loading) {
     return <p>Loading donors...</p>;
   }
@@ -146,6 +169,9 @@ function Donors({ currentUser }) {
       <h2>Donor Management</h2>
       {error && <p className="message">{error}</p>}
       {message && <p className="message">{message}</p>}
+      {editingDonorId && (
+        <p className="message">Editing donor profile. Save to update the existing record.</p>
+      )}
       <form onSubmit={saveDonor}>
         <label>
           First Name{" "}
@@ -206,7 +232,7 @@ function Donors({ currentUser }) {
         <input value={query} onChange={(event) => setQuery(event.target.value)} />
       </label>
       <Table
-        headers={["DTN", "Name", "Contact", "Status", "Action"]}
+        headers={["DTN", "Name", "Contact", "Status", "Actions"]}
         rows={filteredDonors.map((donor) => [
           donor.dtn,
           fullName({
@@ -216,13 +242,17 @@ function Donors({ currentUser }) {
           }),
           donor.contact_number,
           donor.status,
-          <button
-            key={donor.donor_id}
-            onClick={() => toggleDonor(donor.donor_id, donor.status)}
-            type="button"
-          >
-            Toggle
-          </button>,
+          <span key={donor.donor_id}>
+            <button type="button" onClick={() => startEdit(donor)}>
+              Edit
+            </button>{" "}
+            <button
+              onClick={() => toggleDonor(donor.donor_id, donor.status)}
+              type="button"
+            >
+              {donor.status === "Active" ? "Deactivate" : "Activate"}
+            </button>
+          </span>,
         ])}
       />
     </section>
