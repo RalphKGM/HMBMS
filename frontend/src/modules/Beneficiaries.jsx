@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Table from '../components/Table'
-import { fullName, nextId } from '../utils/helpers'
+import { fullName, nextId, today } from '../utils/helpers'
 
 function Beneficiaries({ data, updateData }) {
   const [query, setQuery] = useState('')
@@ -11,6 +11,12 @@ function Beneficiaries({ data, updateData }) {
     address: '',
   })
   const [selectedBeneficiary, setSelectedBeneficiary] = useState(null)
+  const [showInquiryForm, setShowInquiryForm] = useState(false)
+  const [inquiryForm, setInquiryForm] = useState({
+    inquiryDate: today(),
+    requestedVolume: '',
+    remarks: '',
+  })
 
   const filteredBeneficiaries = data.beneficiaries.filter((b) => {
     const text = `${fullName(b)} ${b.contactNumber} ${b.address} ${b.isActive ? 'Active' : 'Inactive'}`
@@ -49,18 +55,46 @@ function Beneficiaries({ data, updateData }) {
     updateData({ ...data, beneficiaries }, 'Beneficiary status updated.')
   }
 
-  function logInquiry(beneficiaryId) {
+  function openInquiryForm(beneficiary) {
+    setSelectedBeneficiary(beneficiary)
+    setInquiryForm({
+      inquiryDate: today(),
+      requestedVolume: '',
+      remarks: '',
+    })
+    setShowInquiryForm(true)
+  }
+
+  function closeInquiryForm() {
+    setShowInquiryForm(false)
+    setInquiryForm({
+      inquiryDate: today(),
+      requestedVolume: '',
+      remarks: '',
+    })
+  }
+
+  function saveInquiry(event) {
+    event.preventDefault()
+    if (!selectedBeneficiary) return
+
     const id = nextId(data.inquiries)
     const inquiry = {
       id,
-      beneficiaryId,
-      inquiryDate: new Date().toISOString().split('T')[0],
+      beneficiaryId: selectedBeneficiary.id,
+      inquiryDate: inquiryForm.inquiryDate,
+      requestedVolume: Number(inquiryForm.requestedVolume),
+      remarks: inquiryForm.remarks,
       status: 'Pending',
+      smsDate: null,
+      closedDate: null,
     }
+
     updateData(
       { ...data, inquiries: [...data.inquiries, inquiry] },
       'Milk availability inquiry logged.'
     )
+    closeInquiryForm()
   }
 
   const inquiriesForSelected = selectedBeneficiary
@@ -97,23 +131,54 @@ function Beneficiaries({ data, updateData }) {
               View Inquiries
             </button>
             {' '}
-            <button type="button" onClick={() => logInquiry(b.id)}>
+            <button type="button" onClick={() => openInquiryForm(b)}>
               Log Inquiry
             </button>
           </span>,
         ])}
       />
 
+      {showInquiryForm && selectedBeneficiary && (
+        <div>
+          <h3>Log Inquiry - {fullName(selectedBeneficiary)}</h3>
+          <form onSubmit={saveInquiry}>
+            <label>
+              Inquiry Date
+              <input readOnly type="date" value={inquiryForm.inquiryDate} />
+            </label>
+            <label>
+              Requested Volume (mL)
+              <input
+                required
+                min="1"
+                type="number"
+                value={inquiryForm.requestedVolume}
+                onChange={(e) => setInquiryForm({ ...inquiryForm, requestedVolume: e.target.value })}
+              />
+            </label>
+            <label>
+              Remarks
+              <textarea
+                value={inquiryForm.remarks}
+                onChange={(e) => setInquiryForm({ ...inquiryForm, remarks: e.target.value })}
+              />
+            </label>
+            <button type="submit">Save Inquiry</button>
+            <button type="button" onClick={closeInquiryForm}>Cancel</button>
+          </form>
+        </div>
+      )}
+
       {selectedBeneficiary && (
         <div>
-          <h3>Inquiry History — {fullName(selectedBeneficiary)}</h3>
+          <h3>Inquiry History - {fullName(selectedBeneficiary)}</h3>
           <button type="button" onClick={() => setSelectedBeneficiary(null)}>Close</button>
           {inquiriesForSelected.length === 0 ? (
             <p>No inquiries logged yet.</p>
           ) : (
             <Table
-              headers={['Inquiry Date', 'Status']}
-              rows={inquiriesForSelected.map((i) => [i.inquiryDate, i.status])}
+              headers={['Inquiry Date', 'Requested Volume', 'Remarks', 'Status']}
+              rows={inquiriesForSelected.map((i) => [i.inquiryDate, `${i.requestedVolume || 0} mL`, i.remarks || '-', i.status])}
             />
           )}
         </div>

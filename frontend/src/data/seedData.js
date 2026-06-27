@@ -65,7 +65,42 @@ export const seedData = {
       expirationDate: '',
     },
   ],
-  inquiries: [{ id: 1, beneficiaryId: 2, inquiryDate: '2026-04-28', status: 'Pending' }],
+  milkRecords: [
+    {
+      id: 1,
+      batchNumber: 'BATCH-2026-001',
+      donorId: 1,
+      collectionProgram: 'Supsup Todo',
+      collectionDate: '2026-04-20',
+      collectedVolume: 650,
+      remainingVolume: 400,
+      status: 'Available',
+      preTestResult: 'PASS',
+      postTestResult: 'PASS',
+      pasteurizationDate: '2026-04-25',
+    },
+  ],
+  milkCollections: [
+    {
+      id: 1,
+      batchId: 1,
+      donorId: 1,
+      collectionType: 'Supsup Todo',
+      collectionDate: '2026-04-20',
+      volumeMl: 650,
+      collectedBy: 3,
+    },
+  ],
+  inquiries: [{
+    id: 1,
+    beneficiaryId: 2,
+    inquiryDate: '2026-04-28',
+    requestedVolume: 300,
+    remarks: '',
+    status: 'Pending',
+    smsDate: null,
+    closedDate: null,
+  }],
   transactions: [
     {
       id: 1,

@@ -92,8 +92,10 @@ function App() {
       {page === "Beneficiaries" && (
         <Beneficiaries data={data} updateData={updateData} />
       )}
-      {page === "Milk Records" && <MilkRecords />}
-      {page === "Pasteurization" && <Pasteurization />}
+      {page === "Milk Records" && <MilkRecords data={data} updateData={updateData} />}
+      {page === "Pasteurization" && (
+        <Pasteurization data={data} updateData={updateData} />
+      )}
       {page === "Dispensing" && (
         <Dispensing
           currentUser={currentUser}
@@ -103,7 +105,7 @@ function App() {
       )}
       {page === "Reports" && <Reports data={data} />}
       {page === "SMS Log" && (
-        <SmsLog currentUser={currentUser} data={data} updateData={updateData} />
+        <SmsLog data={data} updateData={updateData} />
       )}
     </main>
   );

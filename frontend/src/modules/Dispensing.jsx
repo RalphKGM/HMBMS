@@ -41,8 +41,8 @@ function Dispensing({ currentUser, data, updateData }) {
     })
 
     const inquiries = data.inquiries.map((inquiry) => {
-      if (inquiry.beneficiaryId === transaction.beneficiaryId && inquiry.status === 'Pending') {
-        return { ...inquiry, status: 'Fulfilled' }
+      if (inquiry.beneficiaryId === transaction.beneficiaryId && inquiry.status === 'Notified') {
+        return { ...inquiry, status: 'Closed', closedDate: today() }
       }
       return inquiry
     })
