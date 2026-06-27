@@ -112,10 +112,10 @@ function SmsLog({ currentUser }) {
       const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(body.error || "Failed to send simulated SMS.");
+        throw new Error(body.error || "Failed to log simulated SMS.");
       }
 
-      setMessage("Simulated SMS sent.");
+      setMessage("Simulated SMS message logged.");
       setBeneficiaryId("");
       await loadSmsData();
     } catch (sendError) {
@@ -142,13 +142,13 @@ function SmsLog({ currentUser }) {
       const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(body.error || "Failed to notify pending inquiries.");
+        throw new Error(body.error || "Failed to log simulated notifications.");
       }
 
-      setMessage(`${body.count || 0} pending notification(s) logged.`);
+      setMessage(`${body.count || 0} simulated notification(s) logged.`);
       await loadSmsData();
     } catch (notifyError) {
-      setError(notifyError.message || "Failed to notify pending inquiries.");
+      setError(notifyError.message || "Failed to log simulated notifications.");
     } finally {
       setSaving(false);
     }
@@ -160,7 +160,8 @@ function SmsLog({ currentUser }) {
 
   return (
     <section>
-      <h2>SMS Log</h2>
+      <h2>Simulated SMS Log</h2>
+      <p>These entries are simulated only. No real text message is sent.</p>
       {error && <p className="message">{error}</p>}
       {message && <p className="message">{message}</p>}
       <p>Pending inquiries: {pendingInquiries.length}</p>
@@ -186,12 +187,12 @@ function SmsLog({ currentUser }) {
           <textarea value={smsMessage} onChange={(event) => setSmsMessage(event.target.value)} />
         </label>
         <button type="submit" disabled={saving}>
-          {saving ? "Sending..." : "Send Simulated SMS"}
+          {saving ? "Logging..." : "Log Simulated SMS"}
         </button>
       </form>
 
       <button onClick={notifyPending} type="button" disabled={saving}>
-        Notify Pending Inquiries
+        Log Pending Notifications
       </button>
       <Table
         headers={["Recipient", "Message", "Status", "Sent At"]}

@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from "../lib/supabase.js";
+import { SIMULATED_AVAILABLE_MESSAGE, logPendingInquirySms } from "./smsController.js";
 
 const batchSelectColumns =
   "batch_id, batch_number, total_volume, available_volume, status, expiration_date, created_at";
@@ -133,6 +134,17 @@ export const savePasteurizationRecord = async (req, res) => {
 
     if (batchUpdateError) {
       return res.status(500).json({ error: batchUpdateError.message });
+    }
+
+    if (updatedBatch?.status === "Available" && batch.status !== "Available") {
+      try {
+        await logPendingInquirySms({
+          message: SIMULATED_AVAILABLE_MESSAGE,
+          sentBy: recordedBy || null,
+        });
+      } catch (smsError) {
+        console.error("Failed to log simulated SMS notifications:", smsError);
+      }
     }
 
     return res.status(201).json({ record, batch: updatedBatch });
