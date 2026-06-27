@@ -88,6 +88,7 @@ create table if not exists beneficiaries (
 create table if not exists milk_inquiries (
   inquiry_id serial primary key,
   beneficiary_id int not null references beneficiaries(beneficiary_id) on delete cascade,
+  requested_volume_ml decimal(8,2) check (requested_volume_ml > 0),
   inquiry_date date not null default current_date,
   status varchar(20) not null default 'Pending' check (status in ('Pending', 'Fulfilled')),
   logged_by int references users(user_id) on delete set null,

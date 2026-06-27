@@ -4,7 +4,7 @@ const beneficiarySelectColumns =
   "beneficiary_id, first_name, last_name, contact_number, address, is_active, created_by, created_at, updated_at";
 
 const inquirySelectColumns =
-  "inquiry_id, beneficiary_id, inquiry_date, status, logged_by, created_at";
+  "inquiry_id, beneficiary_id, requested_volume_ml, inquiry_date, status, logged_by, created_at";
 
 export const listBeneficiaries = async (req, res) => {
   if (!isSupabaseConfigured || !supabase) {
@@ -158,7 +158,8 @@ export const listBeneficiaryInquiries = async (req, res) => {
       .from("milk_inquiries")
       .select(inquirySelectColumns)
       .eq("beneficiary_id", beneficiaryId)
-      .order("inquiry_date", { ascending: false });
+      .order("inquiry_date", { ascending: false })
+      .order("inquiry_id", { ascending: false });
 
     if (error) {
       return res.status(500).json({ error: error.message });
@@ -177,10 +178,15 @@ export const createBeneficiaryInquiry = async (req, res) => {
   }
 
   const beneficiaryId = Number(req.params.beneficiaryId);
-  const { loggedBy } = req.body || {};
+  const { loggedBy, requestedVolumeMl } = req.body || {};
+  const parsedRequestedVolumeMl = Number(requestedVolumeMl);
 
   if (!Number.isInteger(beneficiaryId)) {
     return res.status(400).json({ error: "Invalid beneficiary id." });
+  }
+
+  if (!Number.isFinite(parsedRequestedVolumeMl) || parsedRequestedVolumeMl <= 0) {
+    return res.status(400).json({ error: "requestedVolumeMl must be a positive number." });
   }
 
   try {
@@ -188,6 +194,7 @@ export const createBeneficiaryInquiry = async (req, res) => {
       .from("milk_inquiries")
       .insert({
         beneficiary_id: beneficiaryId,
+        requested_volume_ml: parsedRequestedVolumeMl,
         logged_by: loggedBy || null,
       })
       .select(inquirySelectColumns)

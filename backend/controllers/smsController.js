@@ -4,7 +4,7 @@ const beneficiarySelectColumns =
   "beneficiary_id, first_name, last_name, contact_number, is_active";
 
 const inquirySelectColumns =
-  "inquiry_id, beneficiary_id, inquiry_date, status";
+  "inquiry_id, beneficiary_id, requested_volume_ml, inquiry_date, status";
 
 const smsSelectColumns =
   "sms_id, beneficiary_id, message, sent_by, sent_at, delivery_status, created_at";

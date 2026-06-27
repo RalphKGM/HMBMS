@@ -5,6 +5,7 @@ import { useAuth } from "./hooks/useAuth";
 import Beneficiaries from "./modules/Beneficiaries";
 import Dispensing from "./modules/Dispensing";
 import Donors from "./modules/Donors";
+import Inquiries from "./modules/Inquiries";
 import ManageUsers from "./modules/ManageUsers";
 import MilkRecords from "./modules/MilkRecords";
 import Pasteurization from "./modules/Pasteurization";
@@ -17,6 +18,7 @@ const pages = [
   "Dashboard",
   "Donors",
   "Beneficiaries",
+  "Inquiries",
   "Milk Records",
   "Pasteurization",
   "Dispensing",
@@ -64,6 +66,7 @@ function App() {
       {activePage === "Dashboard" && <Dashboard />}
       {activePage === "Donors" && <Donors currentUser={currentUser} />}
       {activePage === "Beneficiaries" && <Beneficiaries currentUser={currentUser} />}
+      {activePage === "Inquiries" && <Inquiries />}
       {activePage === "Milk Records" && <MilkRecords currentUser={currentUser} />}
       {activePage === "Pasteurization" && <Pasteurization currentUser={currentUser} />}
       {activePage === "Dispensing" && <Dispensing currentUser={currentUser} />}
