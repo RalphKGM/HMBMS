@@ -23,11 +23,21 @@ export const login = async (req, res) => {
       .single();
 
     if (error) {
+      if (error.code === "PGRST205" || error.message?.includes("schema cache")) {
+        return res.status(503).json({
+          error:
+            "Supabase tables are missing. Run frontend/supabase/schema.sql in the Supabase SQL editor.",
+        });
+      }
       return res.status(500).json({ error: error.message });
     }
 
     if (!data || data.password !== password) {
       return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    if (!data.is_active) {
+      return res.status(403).json({ error: "This account is inactive." });
     }
 
     const { password: _p, ...user } = data;

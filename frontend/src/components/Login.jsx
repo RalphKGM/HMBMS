@@ -1,11 +1,38 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../hooks/useAuth";
 
 function Login() {
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin123");
   const [error, setError] = useState("");
+  const [setupMessage, setSetupMessage] = useState("");
   const { login } = useAuth();
+
+  useEffect(() => {
+    let isMounted = true;
+    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+    fetch(`${apiBase}/api/setup/status`)
+      .then(async (response) => {
+        const body = await response.json().catch(() => ({}));
+
+        if (!response.ok || body.ready === false) {
+          throw new Error(body.message || "Backend setup is incomplete.");
+        }
+
+        return body;
+      })
+      .then(() => {
+        if (isMounted) setSetupMessage("");
+      })
+      .catch((setupError) => {
+        if (isMounted) setSetupMessage(setupError.message || "Backend setup is incomplete.");
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleLogin = (event) => {
     event.preventDefault();
@@ -40,6 +67,7 @@ function Login() {
         </label>
         <button type="submit">Login</button>
       </form>
+      {setupMessage && <p className="message">{setupMessage}</p>}
       {error && <p className="message">{error}</p>}
     </main>
   );
