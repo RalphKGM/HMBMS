@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import Table from "../components/Table";
 
+const initialUserForm = {
+  username: "",
+  password: "",
+  role: "Admin",
+  first_name: "",
+  last_name: "",
+};
+
 async function fetchUsers(apiBase) {
   const response = await fetch(`${apiBase}/api/users`);
   const body = await response.json().catch(() => ({}));
@@ -28,15 +36,73 @@ function ManageUsers() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [confirmStatusChange, setConfirmStatusChange] = useState(false);
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
-  const [formData, setFormData] = useState({
-    username: "",
-    password: "",
-    role: "Admin",
-    first_name: "",
-    last_name: "",
-  });
+  const [formData, setFormData] = useState(initialUserForm);
+
+  function resetUserForm() {
+    setFormData(initialUserForm);
+  }
+
+  function openEditUser(user) {
+    setFormError("");
+    setFormSuccess("");
+    setConfirmStatusChange(false);
+    setEditingUser(user);
+    setFormData({
+      username: user.username || "",
+      password: "",
+      role: user.role || "Admin",
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
+    });
+    setShowForm(true);
+  }
+
+  async function toggleUserStatus(user) {
+    const isActive = Boolean(user.is_active);
+    const nextStatus = !isActive;
+    const action = nextStatus ? "reactivate" : "deactivate";
+
+    setSaving(true);
+    setFormError("");
+    setFormSuccess("");
+
+    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+    try {
+      const response = await fetch(`${apiBase}/api/users/${user.user_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: user.username,
+          role: user.role,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          is_active: nextStatus,
+        }),
+      });
+
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(body.error || `Failed to ${action} user.`);
+      }
+
+      setFormSuccess(`User ${nextStatus ? "reactivated" : "deactivated"} successfully.`);
+      setConfirmStatusChange(false);
+      setEditingUser(null);
+      resetUserForm();
+      setShowForm(false);
+      await loadUsers();
+    } catch (statusError) {
+      setFormError(statusError.message || `Failed to ${action} user.`);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const userStats = useMemo(() => {
     const activeUsers = users.filter((user) => user.is_active).length;
@@ -81,6 +147,14 @@ function ManageUsers() {
           {isActive ? "Active" : "Inactive"}
         </span>,
         formatUserDate(user.created_at),
+        <button
+          key={`edit-${user.user_id}`}
+          type="button"
+          className="min-h-0 border-slate-300 px-3 py-1.5 text-xs"
+          onClick={() => openEditUser(user)}
+        >
+          Edit
+        </button>,
       ];
     });
   }, [users]);
@@ -101,12 +175,19 @@ function ManageUsers() {
 
   const openAddUserModal = () => {
     setFormError("");
+    setFormSuccess("");
+    setEditingUser(null);
+    setConfirmStatusChange(false);
+    resetUserForm();
     setShowForm(true);
   };
 
   const closeAddUserModal = () => {
     if (saving) return;
     setFormError("");
+    setEditingUser(null);
+    setConfirmStatusChange(false);
+    resetUserForm();
     setShowForm(false);
   };
 
@@ -132,39 +213,38 @@ function ManageUsers() {
     };
   }, []);
 
-  const handleCreateUser = async (event) => {
+  const handleSaveUser = async (event) => {
     event.preventDefault();
     setSaving(true);
     setFormError("");
     setFormSuccess("");
 
     const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
+    const isEditing = Boolean(editingUser);
 
     try {
-      const response = await fetch(`${apiBase}/api/users`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      const response = await fetch(
+        isEditing ? `${apiBase}/api/users/${editingUser.user_id}` : `${apiBase}/api/users`,
+        {
+          method: isEditing ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        },
+      );
 
       const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(body.error || "Failed to create user.");
+        throw new Error(body.error || `Failed to ${isEditing ? "update" : "create"} user.`);
       }
 
-      setFormData({
-        username: "",
-        password: "",
-        role: "Admin",
-        first_name: "",
-        last_name: "",
-      });
+      resetUserForm();
+      setEditingUser(null);
       setShowForm(false);
-      setFormSuccess("User created successfully.");
+      setFormSuccess(isEditing ? "User information updated." : "User created successfully.");
       await loadUsers();
-    } catch (createError) {
-      setFormError(createError.message || "Failed to create user.");
+    } catch (saveError) {
+      setFormError(saveError.message || "Failed to save user.");
     } finally {
       setSaving(false);
     }
@@ -217,15 +297,18 @@ function ManageUsers() {
       </div>
 
       {formSuccess && <p className="message">{formSuccess}</p>}
+      {formError && !showForm && <p className="message">{formError}</p>}
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6">
           <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
             <div className="section-header mb-4">
               <div>
-                <h3>New Staff Account</h3>
+                <h3>{editingUser ? "Edit Staff Account" : "New Staff Account"}</h3>
                 <p className="mt-1 text-sm">
-                  Fill in the staff details below. The selected role controls what modules the user can access.
+                  {editingUser
+                    ? "Update this staff account. Leave the password blank if it should stay the same."
+                    : "Fill in the staff details below. The selected role controls what modules the user can access."}
                 </p>
               </div>
               <button
@@ -240,7 +323,7 @@ function ManageUsers() {
 
             {formError && <p className="message mb-4">{formError}</p>}
 
-            <form className="user-form" onSubmit={handleCreateUser}>
+            <form className="user-form" onSubmit={handleSaveUser}>
               <label>
                 Username
                 <input
@@ -260,8 +343,8 @@ function ManageUsers() {
                   onChange={(event) =>
                     setFormData((current) => ({ ...current, password: event.target.value }))
                   }
-                  placeholder="password"
-                  required
+                  placeholder={editingUser ? "Leave blank to keep current password" : "password"}
+                  required={!editingUser}
                 />
               </label>
               <label>
@@ -310,10 +393,84 @@ function ManageUsers() {
                   className="border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
                   disabled={saving}
                 >
-                  {saving ? "Saving..." : "Register User"}
+                  {saving ? "Saving..." : editingUser ? "Update User" : "Register User"}
                 </button>
               </div>
             </form>
+
+            {editingUser && (
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="section-header">
+                  <div>
+                    <h3 className="text-base">Account Access</h3>
+                    <p className="mt-1 text-sm">
+                      Current status:{" "}
+                      <span
+                        className={`font-bold ${
+                          editingUser.is_active ? "text-emerald-700" : "text-slate-500"
+                        }`}
+                      >
+                        {editingUser.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </p>
+                  </div>
+                  {!confirmStatusChange && (
+                    <button
+                      type="button"
+                      className={`${
+                        editingUser.is_active
+                          ? "border-rose-200 bg-rose-50 text-rose-700 hover:border-rose-300 hover:bg-rose-100"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100"
+                      }`}
+                      disabled={saving}
+                      onClick={() => setConfirmStatusChange(true)}
+                    >
+                      {editingUser.is_active ? "Deactivate Account" : "Activate Account"}
+                    </button>
+                  )}
+                </div>
+
+                {confirmStatusChange && (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <p className="font-semibold text-amber-900">
+                      {editingUser.is_active
+                        ? `Are you sure you want to deactivate ${editingUser.username}?`
+                        : `Are you sure you want to activate ${editingUser.username}?`}
+                    </p>
+                    <p className="mt-1 text-sm text-amber-800">
+                      {editingUser.is_active
+                        ? "When deactivated, this account will not be able to log in."
+                        : "When activated, this account can log in again."}
+                    </p>
+                    <div className="mt-4 flex flex-wrap justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmStatusChange(false)}
+                        disabled={saving}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className={`${
+                          editingUser.is_active
+                            ? "border-rose-600 bg-rose-600 text-white hover:border-rose-700 hover:bg-rose-700"
+                            : "border-emerald-600 bg-emerald-600 text-white hover:border-emerald-700 hover:bg-emerald-700"
+                        }`}
+                        disabled={saving}
+                        onClick={() => toggleUserStatus(editingUser)}
+                      >
+                        {saving
+                          ? "Saving..."
+                          : editingUser.is_active
+                            ? "Yes, Deactivate"
+                            : "Yes, Activate"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -338,7 +495,7 @@ function ManageUsers() {
           </div>
         </div>
         <Table
-          headers={["ID", "Username", "Name", "Role", "Status", "Created"]}
+          headers={["ID", "Username", "Name", "Role", "Status", "Created", "Action"]}
           rows={userRows}
         />
       </div>

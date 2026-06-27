@@ -62,3 +62,55 @@ export const createUser = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
+
+export const updateUser = async (req, res) => {
+  if (!isSupabaseConfigured || !supabase) {
+    return res.status(500).json({ error: "Supabase not configured on server." });
+  }
+
+  const userId = Number(req.params.userId);
+  const { username, password, role, first_name, last_name, is_active } = req.body || {};
+
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: "A valid user ID is required." });
+  }
+
+  if (!username || !role || !first_name || !last_name) {
+    return res.status(400).json({
+      error: "username, role, first_name, and last_name are required.",
+    });
+  }
+
+  try {
+    const updates = {
+      username,
+      role,
+      first_name,
+      last_name,
+    };
+
+    if (typeof is_active === "boolean") {
+      updates.is_active = is_active;
+    }
+
+    if (password) {
+      updates.password = await hashPassword(password);
+    }
+
+    const { data, error } = await supabase
+      .from("users")
+      .update(updates)
+      .eq("user_id", userId)
+      .select("user_id, username, role, first_name, last_name, is_active, created_at")
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.json({ user: data });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
