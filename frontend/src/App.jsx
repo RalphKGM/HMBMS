@@ -1,8 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Dashboard from "./components/Dashboard";
 import Login from "./components/Login";
-import { seedData } from "./data/seedData";
-import { loadAppData, saveAppData } from "./lib/dataStore";
 import { useAuth } from "./hooks/useAuth";
 import Beneficiaries from "./modules/Beneficiaries";
 import Dispensing from "./modules/Dispensing";
@@ -27,28 +25,11 @@ const pages = [
 ];
 
 function App() {
-  const [data, setData] = useState(seedData);
   const [page, setPage] = useState("Dashboard");
-  const [message, setMessage] = useState("");
   const { currentUser, logout, isAdmin } = useAuth();
 
   const visiblePages = isAdmin ? pages : pages.filter((item) => item !== "Manage Users");
   const activePage = visiblePages.includes(page) ? page : "Dashboard";
-
-  useEffect(() => {
-    const loadData = async () => {
-      const result = await loadAppData(seedData);
-      setData(result.data);
-    }
-
-    loadData();
-  }, []);
-
-  const updateData = async (nextData, notice) => {
-    setData(nextData);
-    setMessage(notice || "");
-    await saveAppData(nextData);
-  }
 
   if (!currentUser) {
     return <Login />;
@@ -79,8 +60,6 @@ function App() {
         ))}
       </nav>
 
-      {message && <p className="message">{message}</p>}
-
       {activePage === "Manage Users" && isAdmin && <ManageUsers />}
       {activePage === "Dashboard" && <Dashboard />}
       {activePage === "Donors" && <Donors currentUser={currentUser} />}
@@ -89,9 +68,7 @@ function App() {
       {activePage === "Pasteurization" && <Pasteurization currentUser={currentUser} />}
       {activePage === "Dispensing" && <Dispensing currentUser={currentUser} />}
       {activePage === "Reports" && <Reports />}
-      {activePage === "SMS Log" && (
-        <SmsLog currentUser={currentUser} data={data} updateData={updateData} />
-      )}
+      {activePage === "SMS Log" && <SmsLog currentUser={currentUser} />}
     </main>
   );
 }
