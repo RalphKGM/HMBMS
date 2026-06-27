@@ -90,7 +90,7 @@ function App() {
       {page === "Dashboard" && <Dashboard data={data} />}
       {page === "Donors" && <Donors currentUser={currentUser} />}
       {page === "Beneficiaries" && (
-        <Beneficiaries data={data} updateData={updateData} />
+        <Beneficiaries currentUser={currentUser} />
       )}
       {page === "Milk Records" && <MilkRecords />}
       {page === "Pasteurization" && <Pasteurization />}
