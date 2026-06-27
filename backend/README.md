@@ -28,7 +28,3 @@ API
 - POST /api/auth/login
   - body: { username, password }
   - response: { user }
-
-Notes
-
-- New users are stored with bcrypt password hashes. Plaintext password checks are only kept as a fallback for older demo rows that may already exist in Supabase.
