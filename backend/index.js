@@ -3,6 +3,7 @@ import cors from "cors";
 
 import authRoutes from "./routes/auth.js";
 import beneficiariesRoutes from "./routes/beneficiaries.js";
+import dashboardRoutes from "./routes/dashboard.js";
 import dispensingRoutes from "./routes/dispensing.js";
 import donorsRoutes from "./routes/donors.js";
 import milkRecordsRoutes from "./routes/milkRecords.js";
@@ -15,6 +16,7 @@ app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/beneficiaries", beneficiariesRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/dispensing", dispensingRoutes);
 app.use("/api/donors", donorsRoutes);
 app.use("/api/milk-records", milkRecordsRoutes);

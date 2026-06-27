@@ -82,7 +82,7 @@ function App() {
       {message && <p className="message">{message}</p>}
 
       {activePage === "Manage Users" && isAdmin && <ManageUsers />}
-      {activePage === "Dashboard" && <Dashboard data={data} />}
+      {activePage === "Dashboard" && <Dashboard />}
       {activePage === "Donors" && <Donors currentUser={currentUser} />}
       {activePage === "Beneficiaries" && <Beneficiaries currentUser={currentUser} />}
       {activePage === "Milk Records" && <MilkRecords currentUser={currentUser} />}
