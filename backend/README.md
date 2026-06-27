@@ -20,6 +20,8 @@ npm run start
 
 3. Run `frontend/supabase/schema.sql` in the Supabase SQL editor.
 
+4. Optional: run `frontend/supabase/seed_demo.sql` for sample demo records.
+
 API
 
 - GET /api/setup/status
