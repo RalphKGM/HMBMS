@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from "../lib/supabase.js";
+import { verifyPassword } from "../lib/passwords.js";
 
 export const login = async (req, res) => {
   if (!isSupabaseConfigured || !supabase) {
@@ -32,7 +33,7 @@ export const login = async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
-    if (!data || data.password !== password) {
+    if (!data || !(await verifyPassword(password, data.password))) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 

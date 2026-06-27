@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from "../lib/supabase.js";
+import { hashPassword } from "../lib/passwords.js";
 
 export const listUsers = async (req, res) => {
   if (!isSupabaseConfigured || !supabase) {
@@ -36,11 +37,13 @@ export const createUser = async (req, res) => {
   }
 
   try {
+    const passwordHash = await hashPassword(password);
+
     const { data, error } = await supabase
       .from("users")
       .insert({
         username,
-        password,
+        password: passwordHash,
         role,
         first_name,
         last_name,

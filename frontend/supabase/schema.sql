@@ -192,8 +192,8 @@ create trigger trg_deduct_volume_on_dispense
 
 insert into users (username, password, role, first_name, last_name)
 values
-  ('admin', 'admin123', 'Admin', 'System', 'Administrator'),
-  ('doctor', 'doctor123', 'Doctor', 'Demo', 'Doctor'),
-  ('nurse', 'nurse123', 'Nurse', 'Demo', 'Nurse'),
-  ('midwife', 'midwife123', 'Midwife', 'Demo', 'Midwife')
+  ('admin', '$2b$10$BEYCFQ4JnQp8RO0/bSZ9buE2d2HLacFRC.GmLbYL0z6qCbnfX6MS2', 'Admin', 'System', 'Administrator'),
+  ('doctor', '$2b$10$nG7xGPlTAFtNkdarQzO0seQswsHrk7y2fV8yfkrkjU4LLZR9URy0S', 'Doctor', 'Demo', 'Doctor'),
+  ('nurse', '$2b$10$pQaSjn9msxdi8qOzPMA7We7eZ28fUOJ.ibzy9nilQGO9xF8QdGgvy', 'Nurse', 'Demo', 'Nurse'),
+  ('midwife', '$2b$10$Qb8k6sJP7NlRb6bqhCYeKu1qgHcKHVTEwPIb6aLDS7uYYfVYDZQaG', 'Midwife', 'Demo', 'Midwife')
 on conflict (username) do nothing;
