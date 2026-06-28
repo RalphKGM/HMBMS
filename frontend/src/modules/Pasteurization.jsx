@@ -10,7 +10,6 @@ const initialForm = {
   postTestResult: "",
   postTestDate: today(),
   expirationDate: "",
-  remarks: "",
 };
 
 async function fetchPasteurizationData(apiBase) {
@@ -69,10 +68,30 @@ function Pasteurization({ currentUser }) {
   const batches = data.batches || [];
   const records = data.records || [];
 
+  const statusPillClass = (status) => {
+    if (status === "Available") return "bg-emerald-50 text-emerald-700";
+    if (status === "Disposed" || status === "Failed") return "bg-red-50 text-red-700";
+    if (status === "Passed") return "bg-blue-50 text-blue-700";
+    return "bg-amber-50 text-amber-700";
+  };
+
+  const resultPillClass = (result) => {
+    if (result === "Passed") return "bg-emerald-50 text-emerald-700";
+    if (result === "Failed") return "bg-red-50 text-red-700";
+    return "bg-slate-100 text-slate-600";
+  };
+
   const batchNames = useMemo(() => {
     return batches.reduce((names, batch) => {
       names[batch.batch_id] = batch.batch_number;
       return names;
+    }, {});
+  }, [batches]);
+
+  const batchById = useMemo(() => {
+    return batches.reduce((lookup, batch) => {
+      lookup[batch.batch_id] = batch;
+      return lookup;
     }, {});
   }, [batches]);
 
@@ -81,10 +100,31 @@ function Pasteurization({ currentUser }) {
 
   const workQueue = useMemo(() => {
     return records.filter((record) => {
-      const batch = batches.find((item) => item.batch_id === record.batch_id);
+      const batch = batchById[record.batch_id];
       return batch && !["Available", "Disposed"].includes(batch.status);
     });
-  }, [batches, records]);
+  }, [batchById, records]);
+
+  const pasteurizationStats = useMemo(
+    () => [
+      {
+        label: "Work Queue",
+        value: workQueue.length,
+        note: "Batches needing review",
+      },
+      {
+        label: "Pending Lab",
+        value: batches.filter((batch) => batch.status === "Pending Lab").length,
+        note: "Awaiting pre-test result",
+      },
+      {
+        label: "Pending Pasteurization",
+        value: batches.filter((batch) => batch.status === "Passed").length,
+        note: "Ready for post-test",
+      },
+    ],
+    [batches, workQueue.length],
+  );
 
   const refreshData = async () => {
     const body = await fetchPasteurizationData(apiBase);
@@ -100,21 +140,23 @@ function Pasteurization({ currentUser }) {
 
   const openBatch = (batchId) => {
     const batch = batches.find((item) => String(item.batch_id) === String(batchId));
+    const record = records.find((item) => String(item.batch_id) === String(batchId));
     if (!batch) return;
 
     setSelectedBatchId(String(batchId));
-    setForm((current) => ({
-      ...current,
-      preTestDate: today(),
-      postTestDate: today(),
+    setForm({
+      preTestResult: record?.pre_test_result || "",
+      preTestDate: record?.pre_test_date || today(),
+      postTestResult: record?.post_test_result || "",
+      postTestDate: record?.post_test_date || today(),
       expirationDate: batch.expiration_date || "",
-      preTestResult: current.preTestResult || "",
-    }));
+    });
     setError("");
     setMessage("");
   };
 
   const closeDetails = () => {
+    if (saving) return;
     setSelectedBatchId("");
     resetForm();
   };
@@ -228,205 +270,276 @@ function Pasteurization({ currentUser }) {
     }
   };
 
-  const handleQueueAction = (batch, action) => {
+  const handleQueueAction = (batch) => {
+    if (!batch) return;
     openBatch(batch.batch_id);
-
-    if (action === "fail-pre") {
-      setForm((current) => ({
-        ...current,
-        preTestResult: "Failed",
-      }));
-      return;
-    }
-
-    if (action === "pre-test") {
-      setForm((current) => ({
-        ...current,
-        preTestResult: current.preTestResult || "",
-      }));
-      return;
-    }
-
-    if (action === "pasteurize") {
-      setForm((current) => ({
-        ...current,
-        postTestResult: current.postTestResult || "",
-        postTestDate: today(),
-        expirationDate: batch.expiration_date || "",
-      }));
-    }
   };
 
   if (loading) {
-    return <p>Loading pasteurization records...</p>;
+    return (
+      <section>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p>Loading pasteurization records...</p>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <section>
-      <h2>Pasteurization</h2>
-      <p>Pasteurization records are created automatically when a Milk Record is saved.</p>
+    <section className="gap-5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="section-header">
+          <div>
+            <h2>Pasteurization</h2>
+            <p className="mt-2 max-w-2xl text-sm">
+              Process milk batches through pre-test review, pasteurization, and post-test release.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {pasteurizationStats.map((stat) => (
+          <article
+            key={stat.label}
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+              {stat.label}
+            </p>
+            <p className="mt-3 text-3xl font-semibold text-[#003b90]">{stat.value}</p>
+            <p className="mt-1 text-sm text-slate-500">{stat.note}</p>
+          </article>
+        ))}
+      </div>
+
       {error && <p className="message">{error}</p>}
       {message && <p className="message">{message}</p>}
 
-      <Table
-        headers={["Batch Number", "Stage", "Last Test", "Next Step", "Action"]}
-        rows={workQueue.map((record) => {
-          const batch = batches.find((item) => item.batch_id === record.batch_id);
-          const nextStep =
-            batch?.status === "Pending Lab"
-              ? "Review pre-test"
-              : batch?.status === "Passed"
-                ? "Complete pasteurization"
-                : "View batch";
-
-          return [
-            batch?.batch_number || batchNames[record.batch_id] || "Unknown",
-            batch?.status || "Unknown",
-            record.post_test_result
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="section-header mb-4">
+          <div>
+            <h3>Pasteurization Queue</h3>
+            <p className="mt-1 text-sm">
+              Open a batch to record its next required test result.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+            {workQueue.length} {workQueue.length === 1 ? "batch" : "batches"}
+          </span>
+        </div>
+        <Table
+          headers={["Batch Number", "Stage", "Last Test", "Next Step", "Action"]}
+          rows={workQueue.map((record) => {
+            const batch = batchById[record.batch_id];
+            const nextStep =
+              batch?.status === "Pending Lab"
+                ? "Review pre-test"
+                : batch?.status === "Passed"
+                  ? "Complete pasteurization"
+                  : "View batch";
+            const lastTest = record.post_test_result
               ? `${record.post_test_result} (${record.post_test_date || "No date"})`
               : record.pre_test_result
                 ? `${record.pre_test_result} (${record.pre_test_date || "No date"})`
-                : "Not recorded",
-            nextStep,
-            <span key={record.pasteurization_id}>
-              <button type="button" onClick={() => handleQueueAction(batch, "info")}>
+                : "Not recorded";
+
+            return [
+              <span key={`batch-${record.pasteurization_id}`} className="font-semibold text-slate-900">
+                {batch?.batch_number || batchNames[record.batch_id] || "Unknown"}
+              </span>,
+              <span
+                key={`stage-${record.pasteurization_id}`}
+                className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${statusPillClass(batch?.status)}`}
+              >
+                {batch?.status || "Unknown"}
+              </span>,
+              lastTest,
+              nextStep,
+              <button
+                key={`process-${record.pasteurization_id}`}
+                type="button"
+                className="min-h-0 border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-700 hover:border-blue-300 hover:bg-blue-100"
+                onClick={() => handleQueueAction(batch)}
+              >
                 Process Batch
-              </button>{" "}
-            </span>,
-          ];
-        })}
-      />
+              </button>,
+            ];
+          })}
+        />
+      </div>
 
       {selectedBatch && (
-        <div>
-          <h3>Batch Workflow - {selectedBatch.batch_number}</h3>
-          <p>Current stage: {selectedBatch.status}</p>
-          <p>Pre-test result: {selectedRecord?.pre_test_result || "Not recorded yet"}</p>
-          <p>Post-test result: {selectedRecord?.post_test_result || "Not recorded yet"}</p>
-
-          {selectedBatch.status === "Pending Lab" && (
-            <form onSubmit={savePreTest}>
-              <p>Select whether this batch passed or failed the pre-test.</p>
-              <label>
-                Pre-Test Result
-                <select
-                  required
-                  value={form.preTestResult}
-                  onChange={(event) => setForm({ ...form, preTestResult: event.target.value })}
-                >
-                  <option value="">Select</option>
-                  {resultOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Remarks
-                <textarea
-                  placeholder="Optional notes for the batch"
-                  value={form.remarks}
-                  onChange={(event) => setForm({ ...form, remarks: event.target.value })}
-                />
-              </label>
-              <button type="submit" disabled={saving}>
-                {saving ? "Saving..." : "Save Pre-Test"}
-              </button>
-            </form>
-          )}
-
-          {selectedBatch.status === "Passed" && (
-            <form onSubmit={savePasteurization}>
-              <p>Complete the pasteurization step and set the final result.</p>
-              <label>
-                Pasteurization Date
-                <input
-                  type="date"
-                  value={form.postTestDate}
-                  onChange={(event) => setForm({ ...form, postTestDate: event.target.value })}
-                />
-              </label>
-              <label>
-                Post-Test Result
-                <select
-                  required
-                  value={form.postTestResult}
-                  onChange={(event) => setForm({ ...form, postTestResult: event.target.value })}
-                >
-                  <option value="">Select</option>
-                  {resultOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {form.postTestResult === "Passed" && (
-                <label>
-                  Expiration Date
-                  <input
-                    type="date"
-                    required
-                    value={form.expirationDate}
-                    onChange={(event) => setForm({ ...form, expirationDate: event.target.value })}
-                  />
-                </label>
-              )}
-              <label>
-                Remarks
-                <textarea
-                  placeholder="Optional notes for the batch"
-                  value={form.remarks}
-                  onChange={(event) => setForm({ ...form, remarks: event.target.value })}
-                />
-              </label>
-              <button type="submit" disabled={saving}>
-                {saving ? "Saving..." : "Save Pasteurization"}
-              </button>
-            </form>
-          )}
-
-          {selectedBatch.status === "Pending Lab" && (
-            <div>
-              <h4>Quick Actions</h4>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="section-header mb-4">
+              <div>
+                <h3>Process Batch - {selectedBatch.batch_number}</h3>
+                <p className="mt-1 text-sm">
+                  Record the required result for the current pasteurization stage.
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={() => {
-                  setForm((current) => ({ ...current, preTestResult: "Passed" }));
-                }}
+                className="h-10 w-10 rounded-full border-slate-200 bg-slate-50 p-0 text-lg text-slate-600 hover:bg-slate-100"
+                onClick={closeDetails}
+                aria-label="Close pasteurization modal"
               >
-                Mark Pre-Test Passed
-              </button>{" "}
-              <button
-                type="button"
-                onClick={() => {
-                  setForm((current) => ({ ...current, preTestResult: "Failed" }));
-                }}
-              >
-                Mark Pre-Test Failed
+                X
               </button>
             </div>
-          )}
 
-          <button type="button" onClick={closeDetails}>
-            Close
-          </button>
+            <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm sm:grid-cols-2">
+              <p>Current Stage: {selectedBatch.status}</p>
+              <p>Total Volume: {selectedBatch.total_volume || 0} mL</p>
+              <p>Available Volume: {selectedBatch.available_volume || 0} mL</p>
+              <p>Expiration: {selectedBatch.expiration_date || "Not set"}</p>
+              <p>Pre-test: {selectedRecord?.pre_test_result || "Not recorded yet"}</p>
+              <p>Post-test: {selectedRecord?.post_test_result || "Not recorded yet"}</p>
+            </div>
+
+            {selectedBatch.status === "Pending Lab" && (
+              <form className="mt-5" onSubmit={savePreTest}>
+                <p className="text-sm sm:col-span-2 xl:col-span-3">
+                  If the batch fails pre-test, it will be disposed and will not proceed to post-test.
+                </p>
+                <label>
+                  Pre-Test Date
+                  <input
+                    type="date"
+                    value={form.preTestDate}
+                    onChange={(event) => setForm({ ...form, preTestDate: event.target.value })}
+                  />
+                </label>
+                <label>
+                  Pre-Test Result
+                  <select
+                    required
+                    value={form.preTestResult}
+                    onChange={(event) => setForm({ ...form, preTestResult: event.target.value })}
+                  >
+                    <option value="">Select</option>
+                    {resultOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="flex flex-wrap justify-end gap-3 sm:col-span-2 xl:col-span-3">
+                  <button type="button" onClick={closeDetails} disabled={saving}>
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
+                    disabled={saving}
+                  >
+                    {saving ? "Saving..." : "Save Pre-Test"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {selectedBatch.status === "Passed" && (
+              <form className="mt-5" onSubmit={savePasteurization}>
+                <p className="text-sm sm:col-span-2 xl:col-span-3">
+                  Complete pasteurization and record whether the batch can be released.
+                </p>
+                <label>
+                  Pasteurization Date
+                  <input
+                    type="date"
+                    value={form.postTestDate}
+                    onChange={(event) => setForm({ ...form, postTestDate: event.target.value })}
+                  />
+                </label>
+                <label>
+                  Post-Test Result
+                  <select
+                    required
+                    value={form.postTestResult}
+                    onChange={(event) => setForm({ ...form, postTestResult: event.target.value })}
+                  >
+                    <option value="">Select</option>
+                    {resultOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {form.postTestResult === "Passed" && (
+                  <label>
+                    Expiration Date
+                    <input
+                      type="date"
+                      required
+                      value={form.expirationDate}
+                      onChange={(event) => setForm({ ...form, expirationDate: event.target.value })}
+                    />
+                  </label>
+                )}
+                <div className="flex flex-wrap justify-end gap-3 sm:col-span-2 xl:col-span-3">
+                  <button type="button" onClick={closeDetails} disabled={saving}>
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
+                    disabled={saving}
+                  >
+                    {saving ? "Saving..." : "Save Pasteurization"}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {!["Pending Lab", "Passed"].includes(selectedBatch.status) && (
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p>This batch has no pending pasteurization action.</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      <h3>Test Records</h3>
-      <Table
-        headers={["Batch", "Pre-test", "Pre-test Date", "Post-test", "Post-test Date", "Expiration"]}
-        rows={records.map((record) => [
-          batchNames[record.batch_id] || "Unknown",
-          record.pre_test_result || "Not recorded",
-          record.pre_test_date || "Not recorded",
-          record.post_test_result || "Not recorded",
-          record.post_test_date || "Not recorded",
-          record.expiration_date || "Not set",
-        ])}
-      />
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="section-header mb-4">
+          <div>
+            <h3>Test Records</h3>
+            <p className="mt-1 text-sm">
+              Historical pre-test and post-test results for generated batches.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+            {records.length} {records.length === 1 ? "record" : "records"}
+          </span>
+        </div>
+        <Table
+          headers={["Batch", "Pre-test", "Pre-test Date", "Post-test", "Post-test Date", "Expiration"]}
+          rows={records.map((record) => [
+            <span key={`record-batch-${record.pasteurization_id}`} className="font-semibold text-slate-900">
+              {batchNames[record.batch_id] || "Unknown"}
+            </span>,
+            <span
+              key={`pre-${record.pasteurization_id}`}
+              className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${resultPillClass(record.pre_test_result)}`}
+            >
+              {record.pre_test_result || "Not recorded"}
+            </span>,
+            record.pre_test_date || "Not recorded",
+            <span
+              key={`post-${record.pasteurization_id}`}
+              className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${resultPillClass(record.post_test_result)}`}
+            >
+              {record.post_test_result || "Not recorded"}
+            </span>,
+            record.post_test_date || "Not recorded",
+            record.expiration_date || "Not set",
+          ])}
+        />
+      </div>
     </section>
   );
 }
