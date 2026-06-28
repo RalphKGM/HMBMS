@@ -73,7 +73,7 @@ export const savePasteurizationRecord = async (req, res) => {
   } = req.body || {};
   const parsedBatchId = Number(batchId);
 
-  if (!Number.isInteger(parsedBatchId) || parsedBatchId <= 0 || !preTestResult || !preTestDate) {
+  if (!Number.isInteger(parsedBatchId) || !preTestResult || !preTestDate) {
     return res.status(400).json({
       error: "batchId, preTestResult, and preTestDate are required.",
     });
@@ -103,19 +103,43 @@ export const savePasteurizationRecord = async (req, res) => {
       return res.status(500).json({ error: batchLookupError.message });
     }
 
-    const { data: record, error: recordError } = await supabase
+    // Each batch should have a single pasteurization record that gets updated
+    // as it moves through pre-test -> post-test, rather than a new row per
+    // save (which previously caused duplicate rows for the same batch).
+    const { data: existingRecord, error: existingRecordError } = await supabase
       .from("pasteurization_records")
-      .insert({
-        batch_id: parsedBatchId,
-        pre_test_result: preTestResult,
-        pre_test_date: preTestDate,
-        post_test_result: postTestResult || null,
-        post_test_date: postTestResult ? postTestDate || preTestDate : null,
-        expiration_date: expirationDate || null,
-        recorded_by: recordedBy || null,
-      })
       .select(recordSelectColumns)
-      .single();
+      .eq("batch_id", parsedBatchId)
+      .order("pasteurization_id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingRecordError) {
+      return res.status(500).json({ error: existingRecordError.message });
+    }
+
+    const recordPayload = {
+      batch_id: parsedBatchId,
+      pre_test_result: preTestResult,
+      pre_test_date: preTestDate,
+      post_test_result: postTestResult || null,
+      post_test_date: postTestResult ? postTestDate || preTestDate : null,
+      expiration_date: expirationDate || null,
+      recorded_by: recordedBy || null,
+    };
+
+    const { data: record, error: recordError } = existingRecord
+      ? await supabase
+          .from("pasteurization_records")
+          .update(recordPayload)
+          .eq("pasteurization_id", existingRecord.pasteurization_id)
+          .select(recordSelectColumns)
+          .single()
+      : await supabase
+          .from("pasteurization_records")
+          .insert(recordPayload)
+          .select(recordSelectColumns)
+          .single();
 
     if (recordError) {
       return res.status(500).json({ error: recordError.message });
@@ -137,13 +161,16 @@ export const savePasteurizationRecord = async (req, res) => {
     }
 
     let disposal = null;
-    if (preTestResult === "Failed") {
+    if (preTestResult === "Failed" || postTestResult === "Failed") {
+      const failedStage = preTestResult === "Failed" ? "pre-test" : "post-test";
+      const disposalDate = preTestResult === "Failed" ? preTestDate : postTestDate || preTestDate;
+
       const { data: disposalData, error: disposalError } = await supabase
         .from("disposal_records")
         .insert({
           batch_id: parsedBatchId,
-          disposal_date: preTestDate,
-          reason: "Failed pre-test",
+          disposal_date: disposalDate,
+          reason: `Failed ${failedStage}`,
           disposed_by: recordedBy || null,
         })
         .select(disposalSelectColumns)

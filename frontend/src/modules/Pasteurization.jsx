@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Table from "../components/Table";
-import { today } from "../utils/helpers";
+import { today, daysUntil } from "../utils/helpers";
 
 const resultOptions = ["Passed", "Failed"];
 
@@ -69,22 +69,31 @@ function Pasteurization({ currentUser }) {
   const batches = data.batches || [];
   const records = data.records || [];
 
-  const batchNames = useMemo(() => {
-    return batches.reduce((names, batch) => {
-      names[batch.batch_id] = batch.batch_number;
-      return names;
+  const batchesById = useMemo(() => {
+    return batches.reduce((byId, batch) => {
+      byId[batch.batch_id] = batch;
+      return byId;
     }, {});
   }, [batches]);
 
   const selectedBatch = batches.find((batch) => String(batch.batch_id) === String(selectedBatchId));
   const selectedRecord = records.find((record) => String(record.batch_id) === String(selectedBatchId));
 
-  const workQueue = useMemo(() => {
-    return records.filter((record) => {
-      const batch = batches.find((item) => item.batch_id === record.batch_id);
-      return batch && !["Available", "Disposed"].includes(batch.status);
+  const latestRecordByBatch = useMemo(() => {
+    const map = {};
+    // records are ordered newest-first by the backend, so the first one
+    // encountered per batch_id is automatically the latest one.
+    records.forEach((record) => {
+      if (!(record.batch_id in map)) {
+        map[record.batch_id] = record;
+      }
     });
-  }, [batches, records]);
+    return map;
+  }, [records]);
+
+  const workQueue = useMemo(() => {
+    return batches.filter((batch) => !["Available", "Disposed"].includes(batch.status));
+  }, [batches]);
 
   const refreshData = async () => {
     const body = await fetchPasteurizationData(apiBase);
@@ -102,10 +111,12 @@ function Pasteurization({ currentUser }) {
     const batch = batches.find((item) => String(item.batch_id) === String(batchId));
     if (!batch) return;
 
+    const existingRecord = records.find((record) => String(record.batch_id) === String(batchId));
+
     setSelectedBatchId(String(batchId));
     setForm((current) => ({
       ...current,
-      preTestDate: today(),
+      preTestDate: existingRecord?.pre_test_date || today(),
       postTestDate: today(),
       expirationDate: batch.expiration_date || "",
       preTestResult: current.preTestResult || "",
@@ -228,6 +239,35 @@ function Pasteurization({ currentUser }) {
     }
   };
 
+  const disposeFailedBatch = async (batch) => {
+    setSaving(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`${apiBase}/api/pasteurization/batches/${batch.batch_id}/dispose`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: "Failed post-test",
+          disposedBy: currentUser?.id ?? currentUser?.user_id ?? null,
+        }),
+      });
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(body.error || "Failed to dispose batch.");
+      }
+
+      setMessage(`Batch ${batch.batch_number} moved to Disposed.`);
+      await refreshData();
+    } catch (saveError) {
+      setError(saveError.message || "Failed to dispose batch.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleQueueAction = (batch, action) => {
     openBatch(batch.batch_id);
 
@@ -257,6 +297,53 @@ function Pasteurization({ currentUser }) {
     }
   };
 
+  const expirationStatus = (expirationDate) => {
+    if (!expirationDate) return null;
+    const diff = daysUntil(expirationDate);
+    if (diff < 0) return "expired";
+    if (diff <= 2) return "expiring";
+    return "ok";
+  };
+
+  const expirationBadgeStyles = {
+    expired: { background: "#fee2e2", color: "#b91c1c", border: "1px solid #fca5a5" },
+    expiring: { background: "#fef3c7", color: "#b45309", border: "1px solid #fcd34d" },
+    ok: { background: "#dcfce7", color: "#166534", border: "1px solid #86efac" },
+  };
+
+  const badgeBaseStyle = {
+    display: "inline-block",
+    padding: "2px 10px",
+    borderRadius: "999px",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+  };
+
+  const renderExpiration = (expirationDate) => {
+    if (!expirationDate) return "Not set";
+
+    const status = expirationStatus(expirationDate);
+    const labelByStatus = {
+      expired: `${expirationDate} · Expired`,
+      expiring: `${expirationDate} · Expiring soon`,
+      ok: expirationDate,
+    };
+
+    return (
+      <span style={{ ...badgeBaseStyle, ...expirationBadgeStyles[status] }}>
+        {labelByStatus[status]}
+      </span>
+    );
+  };
+
+  const displayStatus = (batch) => {
+    if (!batch) return "Unknown";
+    if (batch.status === "Available" && expirationStatus(batch.expiration_date) === "expired") {
+      return "Expired";
+    }
+    return batch.status || "Unknown";
+  };
+
   if (loading) {
     return <p>Loading pasteurization records...</p>;
   }
@@ -269,29 +356,37 @@ function Pasteurization({ currentUser }) {
       {message && <p className="message">{message}</p>}
 
       <Table
-        headers={["Batch Number", "Stage", "Last Test", "Next Step", "Action"]}
-        rows={workQueue.map((record) => {
-          const batch = batches.find((item) => item.batch_id === record.batch_id);
+        headers={["Batch Number", "Stage", "Last Test", "Expiration", "Next Step", "Action"]}
+        rows={workQueue.map((batch) => {
+          const record = latestRecordByBatch[batch.batch_id];
           const nextStep =
-            batch?.status === "Pending Lab"
+            batch.status === "Pending Lab"
               ? "Review pre-test"
-              : batch?.status === "Passed"
+              : batch.status === "Passed"
                 ? "Complete pasteurization"
-                : "View batch";
+                : batch.status === "Failed"
+                  ? "Dispose batch"
+                  : "View batch";
 
           return [
-            batch?.batch_number || batchNames[record.batch_id] || "Unknown",
-            batch?.status || "Unknown",
-            record.post_test_result
+            batch.batch_number,
+            batch.status || "Unknown",
+            record?.post_test_result
               ? `${record.post_test_result} (${record.post_test_date || "No date"})`
-              : record.pre_test_result
+              : record?.pre_test_result
                 ? `${record.pre_test_result} (${record.pre_test_date || "No date"})`
                 : "Not recorded",
+            batch.expiration_date ? renderExpiration(batch.expiration_date) : "Not set",
             nextStep,
-            <span key={record.pasteurization_id}>
+            <span key={batch.batch_id}>
               <button type="button" onClick={() => handleQueueAction(batch, "info")}>
                 Process Batch
               </button>{" "}
+              {batch.status === "Failed" && (
+                <button type="button" onClick={() => disposeFailedBatch(batch)} disabled={saving}>
+                  Dispose Now
+                </button>
+              )}
             </span>,
           ];
         })}
@@ -303,6 +398,10 @@ function Pasteurization({ currentUser }) {
           <p>Current stage: {selectedBatch.status}</p>
           <p>Pre-test result: {selectedRecord?.pre_test_result || "Not recorded yet"}</p>
           <p>Post-test result: {selectedRecord?.post_test_result || "Not recorded yet"}</p>
+          <p>
+            Expiration date:{" "}
+            {selectedBatch.expiration_date ? renderExpiration(selectedBatch.expiration_date) : "Not set"}
+          </p>
 
           {selectedBatch.status === "Pending Lab" && (
             <form onSubmit={savePreTest}>
@@ -373,6 +472,11 @@ function Pasteurization({ currentUser }) {
                   />
                 </label>
               )}
+              {form.postTestResult === "Passed" && form.expirationDate && (
+                <p>
+                  {renderExpiration(form.expirationDate)}
+                </p>
+              )}
               <label>
                 Remarks
                 <textarea
@@ -415,17 +519,31 @@ function Pasteurization({ currentUser }) {
         </div>
       )}
 
-      <h3>Test Records</h3>
+      <h3>Pasteurization Records</h3>
       <Table
-        headers={["Batch", "Pre-test", "Pre-test Date", "Post-test", "Post-test Date", "Expiration"]}
-        rows={records.map((record) => [
-          batchNames[record.batch_id] || "Unknown",
-          record.pre_test_result || "Not recorded",
-          record.pre_test_date || "Not recorded",
-          record.post_test_result || "Not recorded",
-          record.post_test_date || "Not recorded",
-          record.expiration_date || "Not set",
-        ])}
+        headers={[
+          "Batch ID",
+          "Volume (mL)",
+          "Pre-Test",
+          "Pre-Test Date",
+          "Post-Test",
+          "Post-Test Date",
+          "Expiration Date",
+          "Status",
+        ]}
+        rows={Object.values(latestRecordByBatch).map((record) => {
+          const batch = batchesById[record.batch_id];
+          return [
+            batch?.batch_number || `Batch #${record.batch_id}`,
+            batch?.total_volume != null ? batch.total_volume : "Not recorded",
+            record.pre_test_result || "Not recorded",
+            record.pre_test_date || "Not recorded",
+            record.post_test_result || "Not recorded",
+            record.post_test_date || "Not recorded",
+            renderExpiration(record.expiration_date || batch?.expiration_date),
+            displayStatus(batch),
+          ];
+        })}
       />
     </section>
   );
