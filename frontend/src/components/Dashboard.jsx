@@ -204,12 +204,12 @@ function Dashboard() {
             </div>
           </section>
 
-          <section className="rounded-lg bg-[#1d5bc4] p-6 text-white">
+          <section className="dashboard-inventory-card rounded-lg bg-[#1d5bc4] p-6 text-white">
             <h3 className="text-2xl font-medium tracking-normal">Inventory Status</h3>
             <p className="mt-3 text-sm text-blue-100">
               {availableBatches.length} available batch{availableBatches.length === 1 ? "" : "es"} ready for dispensing.
             </p>
-            <div className="mt-6 rounded-md bg-white/20 px-4 py-3 text-center text-sm font-semibold">
+            <div className="dashboard-inventory-total mt-6 rounded-md bg-white/20 px-4 py-3 text-center text-sm font-semibold">
               {Number(summary.availableMilk).toLocaleString()} mL available
             </div>
           </section>
