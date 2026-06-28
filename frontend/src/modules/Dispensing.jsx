@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import SearchSelect from "../components/SearchSelect";
 import Table from "../components/Table";
 import { fullName, money } from "../utils/helpers";
 
@@ -163,6 +164,24 @@ function Dispensing({ currentUser }) {
 
   const doctors = users.filter((user) => user.role === "Doctor");
   const activeBeneficiaries = beneficiaries.filter((beneficiary) => beneficiary.is_active);
+  const beneficiarySearchOptions = useMemo(
+    () =>
+      activeBeneficiaries.map((beneficiary) => ({
+        value: beneficiary.beneficiary_id,
+        label: beneficiaryNames[beneficiary.beneficiary_id] || `Beneficiary #${beneficiary.beneficiary_id}`,
+        description: beneficiary.contact_number,
+      })),
+    [activeBeneficiaries, beneficiaryNames],
+  );
+  const doctorSearchOptions = useMemo(
+    () =>
+      doctors.map((doctor) => ({
+        value: doctor.user_id,
+        label: [doctor.first_name, doctor.last_name].filter(Boolean).join(" ") || doctor.username,
+        description: doctor.username,
+      })),
+    [doctors],
+  );
   const pendingInquiries = useMemo(() => {
     return inquiryData.inquiries
       .filter((inquiry) => inquiry.status === "Pending")
@@ -362,21 +381,14 @@ function Dispensing({ currentUser }) {
             </div>
 
             <form onSubmit={saveTransaction}>
-              <label>
-                Beneficiary
-                <select
-                  required
-                  value={form.beneficiaryId}
-                  onChange={(event) => setForm({ ...form, beneficiaryId: event.target.value })}
-                >
-                  <option value="">Select beneficiary</option>
-                  {activeBeneficiaries.map((beneficiary) => (
-                    <option key={beneficiary.beneficiary_id} value={beneficiary.beneficiary_id}>
-                      {beneficiaryNames[beneficiary.beneficiary_id]}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SearchSelect
+                label="Beneficiary"
+                required
+                value={form.beneficiaryId}
+                options={beneficiarySearchOptions}
+                placeholder="Type beneficiary name or contact"
+                onChange={(nextValue) => setForm({ ...form, beneficiaryId: nextValue })}
+              />
               <label>
                 Preferred Batch
                 <select
@@ -391,20 +403,13 @@ function Dispensing({ currentUser }) {
                   ))}
                 </select>
               </label>
-              <label>
-                Doctor Approval
-                <select
-                  value={form.approvedBy}
-                  onChange={(event) => setForm({ ...form, approvedBy: event.target.value })}
-                >
-                  <option value="">Select doctor</option>
-                  {doctors.map((doctor) => (
-                    <option key={doctor.user_id} value={doctor.user_id}>
-                      {[doctor.first_name, doctor.last_name].filter(Boolean).join(" ")}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SearchSelect
+                label="Doctor Approval"
+                value={form.approvedBy}
+                options={doctorSearchOptions}
+                placeholder="Type doctor name"
+                onChange={(nextValue) => setForm({ ...form, approvedBy: nextValue })}
+              />
               <label>
                 Volume Dispensed
                 <input

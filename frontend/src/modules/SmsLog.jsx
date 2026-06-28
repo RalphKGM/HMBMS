@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import SearchSelect from "../components/SearchSelect";
 import Table from "../components/Table";
 import { fullName } from "../utils/helpers";
 
@@ -94,6 +95,16 @@ function SmsLog({ currentUser }) {
       return items;
     }, {});
   }, [beneficiaries]);
+
+  const beneficiarySearchOptions = useMemo(
+    () =>
+      beneficiaries.map((beneficiary) => ({
+        value: beneficiary.beneficiary_id,
+        label: beneficiaryNames[beneficiary.beneficiary_id] || `Beneficiary #${beneficiary.beneficiary_id}`,
+        description: beneficiary.contact_number,
+      })),
+    [beneficiaries, beneficiaryNames],
+  );
 
   const filteredSmsLogs = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -273,21 +284,14 @@ function SmsLog({ currentUser }) {
               </button>
             </div>
             <form onSubmit={sendSms}>
-              <label>
-                Beneficiary
-                <select
-                  required
-                  value={beneficiaryId}
-                  onChange={(event) => setBeneficiaryId(event.target.value)}
-                >
-                  <option value="">Select beneficiary</option>
-                  {beneficiaries.map((beneficiary) => (
-                    <option key={beneficiary.beneficiary_id} value={beneficiary.beneficiary_id}>
-                      {beneficiaryNames[beneficiary.beneficiary_id]} - {beneficiary.contact_number}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SearchSelect
+                label="Beneficiary"
+                required
+                value={beneficiaryId}
+                options={beneficiarySearchOptions}
+                placeholder="Type beneficiary name or contact"
+                onChange={setBeneficiaryId}
+              />
               <label className="sm:col-span-2 xl:col-span-3">
                 Message
                 <textarea value={smsMessage} onChange={(event) => setSmsMessage(event.target.value)} />

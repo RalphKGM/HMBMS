@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import SearchSelect from "../components/SearchSelect";
 import Table from "../components/Table";
 import { fullName, today } from "../utils/helpers";
 
@@ -128,6 +129,16 @@ function MilkRecords({ currentUser }) {
       return names;
     }, {});
   }, [donors]);
+
+  const donorSearchOptions = useMemo(
+    () =>
+      donorOptions.map((donor) => ({
+        value: donor.donor_id,
+        label: donorNames[donor.donor_id] || `Donor #${donor.donor_id}`,
+        description: donor.dtn,
+      })),
+    [donorNames, donorOptions],
+  );
 
   const userNames = useMemo(() => {
     return users.reduce((names, user) => {
@@ -450,21 +461,14 @@ function MilkRecords({ currentUser }) {
               </button>
             </div>
             <form onSubmit={saveSingleCollection}>
-              <label>
-                Donor
-                <select
-                  required
-                  value={singleForm.donorId}
-                  onChange={(event) => setSingleForm({ ...singleForm, donorId: event.target.value })}
-                >
-                  <option value="">Select donor</option>
-                  {donorOptions.map((donor) => (
-                    <option key={donor.donor_id} value={donor.donor_id}>
-                      {donor.dtn} - {donorNames[donor.donor_id]}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SearchSelect
+                label="Donor"
+                required
+                value={singleForm.donorId}
+                options={donorSearchOptions}
+                placeholder="Type donor name or DTN"
+                onChange={(nextValue) => setSingleForm({ ...singleForm, donorId: nextValue })}
+              />
               <label>
                 Collection Type
                 <select
@@ -608,20 +612,13 @@ function MilkRecords({ currentUser }) {
                       ))}
                     </select>
                   </label>
-                  <label>
-                    Donor
-                    <select
-                      value={poolForm.donorId}
-                      onChange={(event) => setPoolForm({ ...poolForm, donorId: event.target.value })}
-                    >
-                      <option value="">Select donor</option>
-                      {donorOptions.map((donor) => (
-                        <option key={donor.donor_id} value={donor.donor_id}>
-                          {donor.dtn} - {donorNames[donor.donor_id]}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  <SearchSelect
+                    label="Donor"
+                    value={poolForm.donorId}
+                    options={donorSearchOptions}
+                    placeholder="Type donor name or DTN"
+                    onChange={(nextValue) => setPoolForm({ ...poolForm, donorId: nextValue })}
+                  />
                   <label>
                     Volume (mL)
                     <input
