@@ -162,6 +162,17 @@ function Dispensing({ currentUser }) {
     }, {});
   }, [batches]);
 
+  const staffNames = useMemo(() => {
+    return users.reduce((names, user) => {
+      names[user.user_id] =
+        fullName({
+          firstName: user.first_name,
+          lastName: user.last_name,
+        }) || user.username;
+      return names;
+    }, {});
+  }, [users]);
+
   const doctors = users.filter((user) => user.role === "Doctor");
   const activeBeneficiaries = beneficiaries.filter((beneficiary) => beneficiary.is_active);
   const beneficiarySearchOptions = useMemo(
@@ -217,10 +228,13 @@ function Dispensing({ currentUser }) {
     return transactions.filter((transaction) => {
       const beneficiaryName = beneficiaryNames[transaction.beneficiary_id] || "";
       const batchName = batchNames[transaction.batch_id] || `Batch #${transaction.batch_id}`;
+      const staffName = staffNames[transaction.dispensed_by] || "";
       const searchableText = [
         beneficiaryName,
         batchName,
+        staffName,
         transaction.volume_dispensed,
+        transaction.price,
         transaction.transaction_date,
       ]
         .filter(Boolean)
@@ -229,7 +243,7 @@ function Dispensing({ currentUser }) {
 
       return !normalizedSearch || searchableText.includes(normalizedSearch);
     });
-  }, [batchNames, beneficiaryNames, transactionSearch, transactions]);
+  }, [batchNames, beneficiaryNames, staffNames, transactionSearch, transactions]);
 
   const dispensingStats = useMemo(
     () => [
@@ -512,20 +526,20 @@ function Dispensing({ currentUser }) {
             <input
               value={transactionSearch}
               onChange={(event) => setTransactionSearch(event.target.value)}
-              placeholder="Search recipient, batch, or date"
+              placeholder="Search recipient, staff, volume, price, or date"
             />
           </label>
         </div>
         <Table
-          headers={["Recipient", "Batch", "Volume", "Price", "Date"]}
+          headers={["Recipient", "Volume", "Price", "Date", "Staff"]}
           rows={filteredTransactions.map((transaction) => [
             <span key={`recipient-${transaction.transaction_id}`} className="font-semibold text-slate-900">
               {beneficiaryNames[transaction.beneficiary_id] || "Unknown"}
             </span>,
-            batchNames[transaction.batch_id] || `Batch #${transaction.batch_id}`,
             `${transaction.volume_dispensed} mL`,
             money(transaction.price),
             transaction.transaction_date,
+            staffNames[transaction.dispensed_by] || "Unassigned",
           ])}
         />
       </div>

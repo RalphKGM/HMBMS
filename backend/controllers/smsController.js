@@ -134,6 +134,16 @@ export const createSmsLog = async (req, res) => {
       return res.status(500).json({ error: error.message });
     }
 
+    const { error: updateError } = await supabase
+      .from("milk_inquiries")
+      .update({ status: "Fulfilled" })
+      .eq("beneficiary_id", parsedBeneficiaryId)
+      .eq("status", "Pending");
+
+    if (updateError) {
+      return res.status(500).json({ error: updateError.message });
+    }
+
     return res.status(201).json({ smsLog: data });
   } catch (err) {
     console.error(err);

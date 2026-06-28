@@ -460,7 +460,11 @@ function SmsLog({ currentUser }) {
             log.message,
             <span
               key={`status-${log.sms_id}`}
-              className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700"
+              className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
+                log.delivery_status === "Failed"
+                  ? "bg-rose-50 text-rose-700"
+                  : "bg-emerald-50 text-emerald-700"
+              }`}
             >
               {log.delivery_status}
             </span>,
