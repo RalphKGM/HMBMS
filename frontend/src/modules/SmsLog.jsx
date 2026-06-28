@@ -33,6 +33,7 @@ function SmsLog({ currentUser }) {
   const [pendingInquiries, setPendingInquiries] = useState([]);
   const [smsLogs, setSmsLogs] = useState([]);
   const [showSmsModal, setShowSmsModal] = useState(false);
+  const [showNotifyConfirm, setShowNotifyConfirm] = useState(false);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -106,6 +107,32 @@ function SmsLog({ currentUser }) {
     [beneficiaries, beneficiaryNames],
   );
 
+  function openInquirySmsModal(nextBeneficiaryId) {
+    setBeneficiaryId(String(nextBeneficiaryId));
+    setSmsMessage(defaultMessage);
+    setShowSmsModal(true);
+  }
+
+  const pendingInquiryRows = useMemo(() => {
+    return pendingInquiries.map((inquiry) => [
+      <span key={`beneficiary-${inquiry.inquiry_id}`} className="font-semibold text-slate-900">
+        {beneficiaryNames[inquiry.beneficiary_id] || `Beneficiary #${inquiry.beneficiary_id}`}
+      </span>,
+      beneficiaries.find((beneficiary) => beneficiary.beneficiary_id === inquiry.beneficiary_id)?.contact_number ||
+        "-",
+      inquiry.requested_volume_ml != null ? `${inquiry.requested_volume_ml} mL` : "Not set",
+      inquiry.inquiry_date || "Not recorded",
+      <button
+        key={`send-${inquiry.inquiry_id}`}
+        type="button"
+        className="min-h-0 border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-700 hover:border-blue-300 hover:bg-blue-100"
+        onClick={() => openInquirySmsModal(inquiry.beneficiary_id)}
+      >
+        Send SMS
+      </button>,
+    ]);
+  }, [beneficiaryNames, beneficiaries, pendingInquiries]);
+
   const filteredSmsLogs = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
@@ -152,6 +179,17 @@ function SmsLog({ currentUser }) {
     setShowSmsModal(false);
     setBeneficiaryId("");
     setSmsMessage(defaultMessage);
+  };
+
+  const closeNotifyConfirm = () => {
+    if (saving) return;
+    setShowNotifyConfirm(false);
+  };
+
+  const openCustomSmsModal = () => {
+    setBeneficiaryId("");
+    setSmsMessage("");
+    setShowSmsModal(true);
   };
 
   const sendSms = async (event) => {
@@ -208,6 +246,7 @@ function SmsLog({ currentUser }) {
       }
 
       setMessage(`${body.count || 0} simulated notification(s) logged.`);
+      setShowNotifyConfirm(false);
       await loadSmsData();
     } catch (notifyError) {
       setError(notifyError.message || "Failed to log simulated notifications.");
@@ -233,16 +272,9 @@ function SmsLog({ currentUser }) {
           <div>
             <h2>SMS Log</h2>
             <p className="mt-2 max-w-2xl text-sm">
-              Track simulated mother notifications. No real text message is sent.
+              Track simulated mother notifications and send custom messages to beneficiaries.
             </p>
           </div>
-          <button
-            type="button"
-            className="border-blue-600 bg-blue-600 px-4 text-white hover:border-blue-700 hover:bg-blue-700"
-            onClick={() => setShowSmsModal(true)}
-          >
-            Log SMS
-          </button>
         </div>
       </div>
 
@@ -261,6 +293,43 @@ function SmsLog({ currentUser }) {
         ))}
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-2">
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+            Custom Message
+          </p>
+          <h3 className="mt-3">Send a specific SMS</h3>
+          <p className="mt-2 text-sm">
+            Select any active beneficiary, even if they do not have a pending inquiry, and write your own message.
+          </p>
+          <button
+            type="button"
+            className="mt-4 border-blue-600 bg-blue-600 px-4 text-white hover:border-blue-700 hover:bg-blue-700"
+            onClick={openCustomSmsModal}
+          >
+            Compose Custom Message
+          </button>
+        </article>
+
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+            Quick Notice
+          </p>
+          <h3 className="mt-3">Notify pending inquiries</h3>
+          <p className="mt-2 text-sm">
+            Send the default availability notice to all pending inquiries in one step.
+          </p>
+          <button
+            type="button"
+            className="mt-4 border-blue-600 bg-blue-600 px-4 text-white hover:border-blue-700 hover:bg-blue-700"
+            onClick={() => setShowNotifyConfirm(true)}
+            disabled={saving}
+          >
+            {saving ? "Logging..." : "Notify All Pending"}
+          </button>
+        </article>
+      </div>
+
       {error && <p className="message">{error}</p>}
       {message && <p className="message">{message}</p>}
 
@@ -269,9 +338,9 @@ function SmsLog({ currentUser }) {
           <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
             <div className="section-header mb-4">
               <div>
-                <h3>Log Simulated SMS</h3>
+                <h3>Custom SMS Message</h3>
                 <p className="mt-1 text-sm">
-                  This records the SMS message only. It does not send an actual text.
+                  Choose a beneficiary and write the message you want to log.
                 </p>
               </div>
               <button
@@ -313,18 +382,51 @@ function SmsLog({ currentUser }) {
         </div>
       )}
 
+      {showNotifyConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 px-4 py-6">
+          <div className="w-full max-w-xl rounded-2xl border border-amber-200 bg-white p-5 shadow-2xl">
+            <div className="section-header mb-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-700">
+                  Confirm Action
+                </p>
+                <h3 className="mt-2 font-bold mb-5">Notify all pending inquiries?</h3>
+                <p className="mt-1 text-sm">
+                  This will send the default availability notice to every pending inquiry and mark them as fulfilled,
+                  so they will disappear from the pending table.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-3">
+              <button type="button" onClick={closeNotifyConfirm} disabled={saving}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="border-amber-600 bg-amber-600 text-white hover:border-amber-700 hover:bg-amber-700"
+                onClick={notifyPending}
+                disabled={saving || !pendingInquiries.length}
+              >
+                {saving ? "Sending..." : "Yes, Notify All"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="section-header">
           <div>
             <h3>Pending Availability Notices</h3>
             <p className="mt-1 text-sm">
-              Log one simulated availability message for each pending inquiry.
+              Review pending inquiries and send an SMS to a specific beneficiary when needed.
             </p>
           </div>
-          <button onClick={notifyPending} type="button" disabled={saving}>
-            {saving ? "Logging..." : "Log Pending Notifications"}
-          </button>
         </div>
+        <Table
+          headers={["Beneficiary", "Contact", "Requested mL", "Inquiry Date", "Action"]}
+          rows={pendingInquiryRows}
+        />
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

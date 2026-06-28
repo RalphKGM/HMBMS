@@ -28,6 +28,7 @@ export const logPendingInquirySms = async ({ message, sentBy } = {}) => {
     throw new Error(inquiriesError.message);
   }
 
+  const pendingInquiryIds = (pendingInquiries || []).map((inquiry) => inquiry.inquiry_id);
   const logs = (pendingInquiries || []).map((inquiry) => ({
     beneficiary_id: inquiry.beneficiary_id,
     message: smsMessage,
@@ -37,6 +38,15 @@ export const logPendingInquirySms = async ({ message, sentBy } = {}) => {
 
   if (!logs.length) {
     return { smsLogs: [], count: 0 };
+  }
+
+  const { error: updateError } = await supabase
+    .from("milk_inquiries")
+    .update({ status: "Fulfilled" })
+    .in("inquiry_id", pendingInquiryIds);
+
+  if (updateError) {
+    throw new Error(updateError.message);
   }
 
   const { data, error } = await supabase
