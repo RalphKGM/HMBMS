@@ -48,27 +48,29 @@ export const createDispensingTransaction = async (req, res) => {
 
   const { beneficiaryId, batchId, volumeDispensed, price, dispensedBy } = req.body || {};
   const parsedBeneficiaryId = Number(beneficiaryId);
-  const parsedBatchId = Number(batchId);
+  const parsedBatchId = batchId ? Number(batchId) : null;
   const volume = Number(volumeDispensed);
   const amount = Number(price || 0);
 
   if (
     !Number.isInteger(parsedBeneficiaryId) ||
     parsedBeneficiaryId <= 0 ||
-    !Number.isInteger(parsedBatchId) ||
-    parsedBatchId <= 0 ||
     !volume ||
     volume <= 0
   ) {
     return res.status(400).json({
-      error: "beneficiaryId, batchId, and positive volumeDispensed are required.",
+      error: "beneficiaryId and positive volumeDispensed are required.",
     });
+  }
+
+  if (parsedBatchId !== null && (!Number.isInteger(parsedBatchId) || parsedBatchId <= 0)) {
+    return res.status(400).json({ error: "batchId must be a valid batch id when provided." });
   }
 
   try {
     const transactionsToInsert = [];
 
-    if (Number.isInteger(parsedBatchId)) {
+    if (parsedBatchId !== null) {
       const { data: batch, error: batchError } = await supabase
         .from("milk_batches")
         .select(batchSelectColumns)

@@ -73,6 +73,9 @@ function Dispensing({ currentUser }) {
   const [transactions, setTransactions] = useState([]);
   const [inquiryData, setInquiryData] = useState(emptyInquiryData);
   const [form, setForm] = useState(initialForm);
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [inquirySearch, setInquirySearch] = useState("");
+  const [transactionSearch, setTransactionSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -162,6 +165,74 @@ function Dispensing({ currentUser }) {
   const activeBeneficiaries = beneficiaries.filter((beneficiary) => beneficiary.is_active);
   const pendingInquiries = inquiryData.inquiries.filter((inquiry) => inquiry.status === "Pending");
 
+  const filteredPendingInquiries = useMemo(() => {
+    const normalizedSearch = inquirySearch.trim().toLowerCase();
+
+    return pendingInquiries.filter((inquiry) => {
+      const beneficiaryName = beneficiaryNames[inquiry.beneficiary_id] || "";
+      const searchableText = [
+        beneficiaryName,
+        inquiry.requested_volume_ml,
+        inquiry.inquiry_date,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return !normalizedSearch || searchableText.includes(normalizedSearch);
+    });
+  }, [beneficiaryNames, inquirySearch, pendingInquiries]);
+
+  const filteredTransactions = useMemo(() => {
+    const normalizedSearch = transactionSearch.trim().toLowerCase();
+
+    return transactions.filter((transaction) => {
+      const beneficiaryName = beneficiaryNames[transaction.beneficiary_id] || "";
+      const batchName = batchNames[transaction.batch_id] || `Batch #${transaction.batch_id}`;
+      const searchableText = [
+        beneficiaryName,
+        batchName,
+        transaction.volume_dispensed,
+        transaction.transaction_date,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return !normalizedSearch || searchableText.includes(normalizedSearch);
+    });
+  }, [batchNames, beneficiaryNames, transactionSearch, transactions]);
+
+  const dispensingStats = useMemo(
+    () => [
+      {
+        label: "Available Milk",
+        value: `${batches.reduce((total, batch) => total + Number(batch.available_volume || 0), 0)} mL`,
+        note: "Ready for dispensing",
+      },
+      {
+        label: "Pending Inquiries",
+        value: pendingInquiries.length,
+        note: "Waiting to be fulfilled",
+      },
+      {
+        label: "Transactions",
+        value: transactions.length,
+        note: "Recorded dispensing logs",
+      },
+    ],
+    [batches, pendingInquiries.length, transactions.length],
+  );
+
+  const closeTransactionModal = () => {
+    if (saving) return;
+    setShowTransactionModal(false);
+    setForm({
+      ...initialForm,
+      approvedBy: doctors[0]?.user_id || "",
+    });
+  };
+
   const applyInquiry = (inquiry) => {
     setForm((current) => ({
       ...current,
@@ -171,6 +242,7 @@ function Dispensing({ currentUser }) {
     }));
     setMessage(`Loaded pending inquiry for ${beneficiaryNames[inquiry.beneficiary_id] || "beneficiary"}.`);
     setError("");
+    setShowTransactionModal(true);
   };
 
   const saveTransaction = async (event) => {
@@ -203,6 +275,7 @@ function Dispensing({ currentUser }) {
         ...initialForm,
         approvedBy: doctors[0]?.user_id || "",
       });
+      setShowTransactionModal(false);
       await loadDispensingData();
     } catch (saveError) {
       setError(saveError.message || "Failed to save dispensing transaction.");
@@ -212,109 +285,236 @@ function Dispensing({ currentUser }) {
   };
 
   if (loading) {
-    return <p>Loading dispensing records...</p>;
+    return (
+      <section>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p>Loading dispensing records...</p>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <section>
-      <h2>Milk Dispensing</h2>
+    <section className="gap-5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="section-header">
+          <div>
+            <h2>Milk Dispensing</h2>
+            <p className="mt-2 max-w-2xl text-sm">
+              Fulfill pending beneficiary inquiries and record milk dispensing transactions.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="border-blue-600 bg-blue-600 px-4 text-white hover:border-blue-700 hover:bg-blue-700"
+            onClick={() => setShowTransactionModal(true)}
+          >
+            New Transaction
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {dispensingStats.map((stat) => (
+          <article
+            key={stat.label}
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+              {stat.label}
+            </p>
+            <p className="mt-3 text-3xl font-semibold text-[#003b90]">{stat.value}</p>
+            <p className="mt-1 text-sm text-slate-500">{stat.note}</p>
+          </article>
+        ))}
+      </div>
+
       {error && <p className="message">{error}</p>}
       {message && <p className="message">{message}</p>}
 
-      <form onSubmit={saveTransaction}>
-        <label>
-          Beneficiary
-          <select
-            required
-            value={form.beneficiaryId}
-            onChange={(event) => setForm({ ...form, beneficiaryId: event.target.value })}
-          >
-            <option value="">Select beneficiary</option>
-            {activeBeneficiaries.map((beneficiary) => (
-              <option key={beneficiary.beneficiary_id} value={beneficiary.beneficiary_id}>
-                {beneficiaryNames[beneficiary.beneficiary_id]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="message">Milk will be auto-allocated from available batches. Batch selection is optional.</p>
-        <label>
-          Preferred Batch
-          <select
-            value={form.batchId}
-            onChange={(event) => setForm({ ...form, batchId: event.target.value })}
-          >
-            <option value="">Auto-allocate across batches</option>
-            {batches.map((batch) => (
-              <option key={batch.batch_id} value={batch.batch_id}>
-                {batch.batch_number} - {batch.available_volume} mL
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Doctor Approval
-          <select
-            value={form.approvedBy}
-            onChange={(event) => setForm({ ...form, approvedBy: event.target.value })}
-          >
-            <option value="">Select doctor</option>
-            {doctors.map((doctor) => (
-              <option key={doctor.user_id} value={doctor.user_id}>
-                {[doctor.first_name, doctor.last_name].filter(Boolean).join(" ")}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Volume Dispensed{" "}
-          <input
-            required
-            min="1"
-            type="number"
-            value={form.volumeDispensed}
-            onChange={(event) => setForm({ ...form, volumeDispensed: event.target.value })}
-          />
-        </label>
-        <label>
-          Price{" "}
-          <input
-            required
-            min="0"
-            type="number"
-            value={form.price}
-            onChange={(event) => setForm({ ...form, price: event.target.value })}
-          />
-        </label>
-        <button type="submit" disabled={saving}>
-          {saving ? "Saving..." : "Save Transaction"}
-        </button>
-      </form>
+      {showTransactionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="section-header mb-4">
+              <div>
+                <h3>Dispense Milk</h3>
+                <p className="mt-1 text-sm">
+                  Milk will be auto-allocated from available batches unless a preferred batch is selected.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="h-10 w-10 rounded-full border-slate-200 bg-slate-50 p-0 text-lg text-slate-600 hover:bg-slate-100"
+                onClick={closeTransactionModal}
+                aria-label="Close dispensing modal"
+              >
+                X
+              </button>
+            </div>
 
-      <h3>Pending Inquiries</h3>
-      <Table
-        headers={["Beneficiary", "Requested mL", "Inquiry Date", "Action"]}
-        rows={pendingInquiries.map((inquiry) => [
-          beneficiaryNames[inquiry.beneficiary_id] || `Beneficiary #${inquiry.beneficiary_id}`,
-          inquiry.requested_volume_ml != null ? `${inquiry.requested_volume_ml} mL` : "Not set",
-          inquiry.inquiry_date,
-          <button key={`use-${inquiry.inquiry_id}`} type="button" onClick={() => applyInquiry(inquiry)}>
-            Use Inquiry
-          </button>,
-        ])}
-      />
+            <form onSubmit={saveTransaction}>
+              <label>
+                Beneficiary
+                <select
+                  required
+                  value={form.beneficiaryId}
+                  onChange={(event) => setForm({ ...form, beneficiaryId: event.target.value })}
+                >
+                  <option value="">Select beneficiary</option>
+                  {activeBeneficiaries.map((beneficiary) => (
+                    <option key={beneficiary.beneficiary_id} value={beneficiary.beneficiary_id}>
+                      {beneficiaryNames[beneficiary.beneficiary_id]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Preferred Batch
+                <select
+                  value={form.batchId}
+                  onChange={(event) => setForm({ ...form, batchId: event.target.value })}
+                >
+                  <option value="">Auto-allocate across batches</option>
+                  {batches.map((batch) => (
+                    <option key={batch.batch_id} value={batch.batch_id}>
+                      {batch.batch_number} - {batch.available_volume} mL
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Doctor Approval
+                <select
+                  value={form.approvedBy}
+                  onChange={(event) => setForm({ ...form, approvedBy: event.target.value })}
+                >
+                  <option value="">Select doctor</option>
+                  {doctors.map((doctor) => (
+                    <option key={doctor.user_id} value={doctor.user_id}>
+                      {[doctor.first_name, doctor.last_name].filter(Boolean).join(" ")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Volume Dispensed
+                <input
+                  required
+                  min="1"
+                  type="number"
+                  value={form.volumeDispensed}
+                  onChange={(event) => setForm({ ...form, volumeDispensed: event.target.value })}
+                />
+              </label>
+              <label>
+                Price
+                <input
+                  required
+                  min="0"
+                  type="number"
+                  value={form.price}
+                  onChange={(event) => setForm({ ...form, price: event.target.value })}
+                />
+              </label>
+              <p className="message sm:col-span-2 xl:col-span-3">
+                Leave Preferred Batch blank to allocate across multiple available batches.
+              </p>
+              <div className="flex flex-wrap justify-end gap-3 sm:col-span-2 xl:col-span-3">
+                <button type="button" onClick={closeTransactionModal} disabled={saving}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
+                  disabled={saving}
+                >
+                  {saving ? "Saving..." : "Save Transaction"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-      <h3>Transactions</h3>
-      <Table
-        headers={["Recipient", "Batch", "Volume", "Price", "Date"]}
-        rows={transactions.map((transaction) => [
-          beneficiaryNames[transaction.beneficiary_id] || "Unknown",
-          batchNames[transaction.batch_id] || `Batch #${transaction.batch_id}`,
-          `${transaction.volume_dispensed} mL`,
-          money(transaction.price),
-          transaction.transaction_date,
-        ])}
-      />
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="section-header mb-4">
+          <div>
+            <h3>Pending Inquiries</h3>
+            <p className="mt-1 text-sm">
+              Use an inquiry to prefill the beneficiary and requested milk volume.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+            {filteredPendingInquiries.length} of {pendingInquiries.length}{" "}
+            {pendingInquiries.length === 1 ? "inquiry" : "inquiries"}
+          </span>
+        </div>
+        <div className="mb-4 max-w-xs">
+          <label>
+            Search
+            <input
+              value={inquirySearch}
+              onChange={(event) => setInquirySearch(event.target.value)}
+              placeholder="Search beneficiary or date"
+            />
+          </label>
+        </div>
+        <Table
+          headers={["Beneficiary", "Requested mL", "Inquiry Date", "Action"]}
+          rows={filteredPendingInquiries.map((inquiry) => [
+            <span key={`beneficiary-${inquiry.inquiry_id}`} className="font-semibold text-slate-900">
+              {beneficiaryNames[inquiry.beneficiary_id] || `Beneficiary #${inquiry.beneficiary_id}`}
+            </span>,
+            inquiry.requested_volume_ml != null ? `${inquiry.requested_volume_ml} mL` : "Not set",
+            inquiry.inquiry_date,
+            <button
+              key={`use-${inquiry.inquiry_id}`}
+              type="button"
+              className="min-h-0 border-blue-200 bg-blue-50 px-3 py-1.5 text-xs text-blue-700 hover:border-blue-300 hover:bg-blue-100"
+              onClick={() => applyInquiry(inquiry)}
+            >
+              Dispense
+            </button>,
+          ])}
+        />
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="section-header mb-4">
+          <div>
+            <h3>Transactions</h3>
+            <p className="mt-1 text-sm">
+              Review completed dispensing records and allocated batches.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+            {filteredTransactions.length} of {transactions.length}{" "}
+            {transactions.length === 1 ? "record" : "records"}
+          </span>
+        </div>
+        <div className="mb-4 max-w-xs">
+          <label>
+            Search
+            <input
+              value={transactionSearch}
+              onChange={(event) => setTransactionSearch(event.target.value)}
+              placeholder="Search recipient, batch, or date"
+            />
+          </label>
+        </div>
+        <Table
+          headers={["Recipient", "Batch", "Volume", "Price", "Date"]}
+          rows={filteredTransactions.map((transaction) => [
+            <span key={`recipient-${transaction.transaction_id}`} className="font-semibold text-slate-900">
+              {beneficiaryNames[transaction.beneficiary_id] || "Unknown"}
+            </span>,
+            batchNames[transaction.batch_id] || `Batch #${transaction.batch_id}`,
+            `${transaction.volume_dispensed} mL`,
+            money(transaction.price),
+            transaction.transaction_date,
+          ])}
+        />
+      </div>
     </section>
   );
 }
