@@ -84,8 +84,8 @@ function Disposal() {
       },
       {
         label: "Auto Disposals",
-        value: disposals.filter((disposal) => disposal.reason === "Failed pre-test").length,
-        note: "Failed pre-test batches",
+        value: disposals.filter((disposal) => disposal.reason?.startsWith("Failed")).length,
+        note: "Failed test batches",
       },
     ],
     [disposals, filteredDisposals.length],

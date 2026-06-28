@@ -11,10 +11,16 @@ const disposalSelectColumns =
   "disposal_id, batch_id, disposal_date, reason, disposed_by, created_at";
 
 function nextBatchStatus(preTestResult, postTestResult) {
-  if (preTestResult === "Failed" || postTestResult === "Failed") return "Failed";
+  if (preTestResult === "Failed" || postTestResult === "Failed") return "Disposed";
   if (postTestResult === "Passed") return "Available";
-  if (preTestResult === "Passed") return "Passed";
+  if (preTestResult === "Passed") return "Pending Post-Test";
   return "Pending Lab";
+}
+
+function disposalReason(preTestResult, postTestResult) {
+  if (preTestResult === "Failed") return "Failed pre-test";
+  if (postTestResult === "Failed") return "Failed post-test";
+  return null;
 }
 
 export const listPasteurizationData = async (req, res) => {
@@ -136,14 +142,24 @@ export const savePasteurizationRecord = async (req, res) => {
       return res.status(500).json({ error: batchUpdateError.message });
     }
 
+    const { error: collectionStatusError } = await supabase
+      .from("milk_collections")
+      .update({ status })
+      .eq("batch_id", parsedBatchId);
+
+    if (collectionStatusError) {
+      return res.status(500).json({ error: collectionStatusError.message });
+    }
+
     let disposal = null;
-    if (preTestResult === "Failed") {
+    const reason = disposalReason(preTestResult, postTestResult);
+    if (reason) {
       const { data: disposalData, error: disposalError } = await supabase
         .from("disposal_records")
         .insert({
           batch_id: parsedBatchId,
-          disposal_date: preTestDate,
-          reason: "Failed pre-test",
+          disposal_date: postTestResult === "Failed" ? postTestDate || preTestDate : preTestDate,
+          reason,
           disposed_by: recordedBy || null,
         })
         .select(disposalSelectColumns)

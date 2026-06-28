@@ -35,7 +35,7 @@ create table if not exists milk_batches (
   total_volume decimal(8,2) not null default 0,
   available_volume decimal(8,2) not null default 0,
   status varchar(30) not null default 'Pending Lab'
-    check (status in ('Pending Lab', 'Passed', 'Failed', 'Disposed', 'Pasteurized', 'Available')),
+    check (status in ('Pending Lab', 'Pending Post-Test', 'Passed', 'Failed', 'Disposed', 'Pasteurized', 'Available')),
   expiration_date date,
   created_at timestamp not null default now()
 );
@@ -49,7 +49,7 @@ create table if not exists milk_collections (
   volume_ml decimal(8,2) not null check (volume_ml > 0),
   collected_by int references users(user_id) on delete set null,
   status varchar(30) not null default 'Pending Lab'
-    check (status in ('Pending Lab', 'Passed', 'Failed', 'Disposed', 'Pasteurized', 'Available')),
+    check (status in ('Pending Lab', 'Pending Post-Test', 'Passed', 'Failed', 'Disposed', 'Pasteurized', 'Available')),
   created_at timestamp not null default now()
 );
 
@@ -116,6 +116,22 @@ create table if not exists sms_logs (
     check (delivery_status in ('Sent', 'Failed')),
   created_at timestamp not null default now()
 );
+
+alter table milk_batches drop constraint if exists milk_batches_status_check;
+alter table milk_batches add constraint milk_batches_status_check
+  check (status in ('Pending Lab', 'Pending Post-Test', 'Passed', 'Failed', 'Disposed', 'Pasteurized', 'Available'));
+
+alter table milk_collections drop constraint if exists milk_collections_status_check;
+alter table milk_collections add constraint milk_collections_status_check
+  check (status in ('Pending Lab', 'Pending Post-Test', 'Passed', 'Failed', 'Disposed', 'Pasteurized', 'Available'));
+
+update sms_logs
+set delivery_status = 'Sent'
+where delivery_status = 'Delivered';
+
+alter table sms_logs drop constraint if exists sms_logs_delivery_status_check;
+alter table sms_logs add constraint sms_logs_delivery_status_check
+  check (delivery_status in ('Sent', 'Failed'));
 
 create index if not exists idx_donors_dtn on donors(dtn);
 create index if not exists idx_donors_status on donors(status);

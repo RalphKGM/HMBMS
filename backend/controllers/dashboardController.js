@@ -42,7 +42,7 @@ export const getDashboardSummary = async (req, res) => {
       beneficiaryCount: beneficiaries?.length || 0,
       pendingInquiryCount: inquiries?.length || 0,
       pasteurizationCount: (allBatches || []).filter((batch) =>
-        ["Pending Lab", "Passed", "Pasteurized"].includes(batch.status),
+        ["Pending Lab", "Pending Post-Test", "Passed", "Pasteurized"].includes(batch.status),
       ).length,
       availableBatches: availableBatches || [],
     });

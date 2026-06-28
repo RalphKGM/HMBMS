@@ -3,6 +3,7 @@ import Table from "../components/Table";
 import { today } from "../utils/helpers";
 
 const resultOptions = ["Passed", "Failed"];
+const pendingPostTestStatuses = ["Pending Post-Test", "Passed"];
 
 const initialForm = {
   preTestResult: "",
@@ -33,7 +34,7 @@ function Pasteurization({ currentUser }) {
   const [message, setMessage] = useState("");
   const [selectedBatchId, setSelectedBatchId] = useState("");
   const [queueSearch, setQueueSearch] = useState("");
-  const [queueStageFilter, setQueueStageFilter] = useState("All");
+  const [queueStatusFilter, setQueueStatusFilter] = useState("All");
   const [recordSearch, setRecordSearch] = useState("");
   const [recordResultFilter, setRecordResultFilter] = useState("All");
   const [form, setForm] = useState(initialForm);
@@ -75,14 +76,41 @@ function Pasteurization({ currentUser }) {
   const statusPillClass = (status) => {
     if (status === "Available") return "bg-emerald-50 text-emerald-700";
     if (status === "Disposed" || status === "Failed") return "bg-red-50 text-red-700";
-    if (status === "Passed") return "bg-blue-50 text-blue-700";
+    if (pendingPostTestStatuses.includes(status)) return "bg-blue-50 text-blue-700";
     return "bg-amber-50 text-amber-700";
+  };
+
+  const displayBatchStatus = (status) => {
+    if (status === "Passed") return "Pending Post-Test";
+    return status || "Unknown";
   };
 
   const resultPillClass = (result) => {
     if (result === "Passed") return "bg-emerald-50 text-emerald-700";
     if (result === "Failed") return "bg-red-50 text-red-700";
+    if (["Pending Lab", "Pending Post-Test", "Not started"].includes(result)) {
+      return "bg-amber-50 text-amber-700";
+    }
+    if (result === "Skipped") return "bg-slate-100 text-slate-600";
     return "bg-slate-100 text-slate-600";
+  };
+
+  const getPreTestDisplay = (record, batch) => {
+    if (record?.pre_test_result) return record.pre_test_result;
+    if (batch?.status === "Pending Lab") return "Pending Lab";
+    return "Not started";
+  };
+
+  const getPostTestDisplay = (record, batch) => {
+    if (record?.post_test_result) return record.post_test_result;
+    if (record?.pre_test_result === "Failed" || batch?.status === "Disposed") return "Skipped";
+    if (pendingPostTestStatuses.includes(batch?.status)) return "Pending Post-Test";
+    if (batch?.status === "Pending Lab") return "Not started";
+    return "Not started";
+  };
+
+  const getDateDisplay = (date, fallback = "Not scheduled") => {
+    return date || fallback;
   };
 
   const batchNames = useMemo(() => {
@@ -114,7 +142,7 @@ function Pasteurization({ currentUser }) {
 
     return workQueue.filter((record) => {
       const batch = batchById[record.batch_id];
-      const stage = batch?.status || "Unknown";
+      const status = displayBatchStatus(batch?.status);
       const searchableText = [
         batch?.batch_number,
         record.pre_test_date,
@@ -125,11 +153,11 @@ function Pasteurization({ currentUser }) {
         .toLowerCase();
 
       const matchesSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
-      const matchesStage = queueStageFilter === "All" || stage === queueStageFilter;
+      const matchesStatus = queueStatusFilter === "All" || status === queueStatusFilter;
 
-      return matchesSearch && matchesStage;
+      return matchesSearch && matchesStatus;
     });
-  }, [batchById, queueSearch, queueStageFilter, workQueue]);
+  }, [batchById, queueSearch, queueStatusFilter, workQueue]);
 
   const filteredRecords = useMemo(() => {
     const normalizedSearch = recordSearch.trim().toLowerCase();
@@ -169,8 +197,8 @@ function Pasteurization({ currentUser }) {
         note: "Awaiting pre-test result",
       },
       {
-        label: "Pending Pasteurization",
-        value: batches.filter((batch) => batch.status === "Passed").length,
+        label: "Pending Post-Test",
+        value: batches.filter((batch) => pendingPostTestStatuses.includes(batch.status)).length,
         note: "Ready for post-test",
       },
     ],
@@ -268,7 +296,7 @@ function Pasteurization({ currentUser }) {
       return;
     }
 
-    if (selectedBatch?.status !== "Passed") {
+    if (!pendingPostTestStatuses.includes(selectedBatch?.status)) {
       setError("Select a batch that is pending pasteurization.");
       return;
     }
@@ -389,33 +417,33 @@ function Pasteurization({ currentUser }) {
             />
           </label>
           <label>
-            Stage
+            Status
             <select
-              value={queueStageFilter}
-              onChange={(event) => setQueueStageFilter(event.target.value)}
+              value={queueStatusFilter}
+              onChange={(event) => setQueueStatusFilter(event.target.value)}
             >
-              <option value="All">All stages</option>
+              <option value="All">All statuses</option>
               <option value="Pending Lab">Pending Lab</option>
-              <option value="Passed">Pending Pasteurization</option>
-              <option value="Failed">Failed</option>
+              <option value="Pending Post-Test">Pending Post-Test</option>
             </select>
           </label>
         </div>
         <Table
-          headers={["Batch Number", "Stage", "Last Test", "Next Step", "Action"]}
+          headers={["Batch Number", "Status", "Last Test", "Next Step", "Action"]}
           rows={filteredWorkQueue.map((record) => {
             const batch = batchById[record.batch_id];
+            const status = displayBatchStatus(batch?.status);
             const nextStep =
               batch?.status === "Pending Lab"
                 ? "Review pre-test"
-                : batch?.status === "Passed"
-                  ? "Complete pasteurization"
+                : pendingPostTestStatuses.includes(batch?.status)
+                  ? "Complete post-test"
                   : "View batch";
             const lastTest = record.post_test_result
               ? `${record.post_test_result} (${record.post_test_date || "No date"})`
               : record.pre_test_result
                 ? `${record.pre_test_result} (${record.pre_test_date || "No date"})`
-                : "Not recorded";
+                : "Pending Lab";
 
             return [
               <span key={`batch-${record.pasteurization_id}`} className="font-semibold text-slate-900">
@@ -425,7 +453,7 @@ function Pasteurization({ currentUser }) {
                 key={`stage-${record.pasteurization_id}`}
                 className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${statusPillClass(batch?.status)}`}
               >
-                {batch?.status || "Unknown"}
+                {status}
               </span>,
               lastTest,
               nextStep,
@@ -449,7 +477,7 @@ function Pasteurization({ currentUser }) {
               <div>
                 <h3>Process Batch - {selectedBatch.batch_number}</h3>
                 <p className="mt-1 text-sm">
-                  Record the required result for the current pasteurization stage.
+                  Record the required result for the current pasteurization status.
                 </p>
               </div>
               <button
@@ -463,12 +491,12 @@ function Pasteurization({ currentUser }) {
             </div>
 
             <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm sm:grid-cols-2">
-              <p>Current Stage: {selectedBatch.status}</p>
+              <p>Current Status: {displayBatchStatus(selectedBatch.status)}</p>
               <p>Total Volume: {selectedBatch.total_volume || 0} mL</p>
               <p>Available Volume: {selectedBatch.available_volume || 0} mL</p>
               <p>Expiration: {selectedBatch.expiration_date || "Not set"}</p>
-              <p>Pre-test: {selectedRecord?.pre_test_result || "Not recorded yet"}</p>
-              <p>Post-test: {selectedRecord?.post_test_result || "Not recorded yet"}</p>
+              <p>Pre-test: {getPreTestDisplay(selectedRecord, selectedBatch)}</p>
+              <p>Post-test: {getPostTestDisplay(selectedRecord, selectedBatch)}</p>
             </div>
 
             {selectedBatch.status === "Pending Lab" && (
@@ -514,10 +542,10 @@ function Pasteurization({ currentUser }) {
               </form>
             )}
 
-            {selectedBatch.status === "Passed" && (
+            {pendingPostTestStatuses.includes(selectedBatch.status) && (
               <form className="mt-5" onSubmit={savePasteurization}>
                 <p className="text-sm sm:col-span-2 xl:col-span-3">
-                  Complete pasteurization and record whether the batch can be released.
+                  Complete post-test and record whether the batch can be released.
                 </p>
                 <label>
                   Pasteurization Date
@@ -568,7 +596,7 @@ function Pasteurization({ currentUser }) {
               </form>
             )}
 
-            {!["Pending Lab", "Passed"].includes(selectedBatch.status) && (
+            {!["Pending Lab", ...pendingPostTestStatuses].includes(selectedBatch.status) && (
               <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p>This batch has no pending pasteurization action.</p>
               </div>
@@ -612,26 +640,32 @@ function Pasteurization({ currentUser }) {
         </div>
         <Table
           headers={["Batch", "Pre-test", "Pre-test Date", "Post-test", "Post-test Date", "Expiration"]}
-          rows={filteredRecords.map((record) => [
-            <span key={`record-batch-${record.pasteurization_id}`} className="font-semibold text-slate-900">
-              {batchNames[record.batch_id] || "Unknown"}
-            </span>,
-            <span
-              key={`pre-${record.pasteurization_id}`}
-              className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${resultPillClass(record.pre_test_result)}`}
-            >
-              {record.pre_test_result || "Not recorded"}
-            </span>,
-            record.pre_test_date || "Not recorded",
-            <span
-              key={`post-${record.pasteurization_id}`}
-              className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${resultPillClass(record.post_test_result)}`}
-            >
-              {record.post_test_result || "Not recorded"}
-            </span>,
-            record.post_test_date || "Not recorded",
-            record.expiration_date || "Not set",
-          ])}
+          rows={filteredRecords.map((record) => {
+            const batch = batchById[record.batch_id];
+            const preTestDisplay = getPreTestDisplay(record, batch);
+            const postTestDisplay = getPostTestDisplay(record, batch);
+
+            return [
+              <span key={`record-batch-${record.pasteurization_id}`} className="font-semibold text-slate-900">
+                {batchNames[record.batch_id] || "Unknown"}
+              </span>,
+              <span
+                key={`pre-${record.pasteurization_id}`}
+                className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${resultPillClass(preTestDisplay)}`}
+              >
+                {preTestDisplay}
+              </span>,
+              getDateDisplay(record.pre_test_date),
+              <span
+                key={`post-${record.pasteurization_id}`}
+                className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${resultPillClass(postTestDisplay)}`}
+              >
+                {postTestDisplay}
+              </span>,
+              getDateDisplay(record.post_test_date),
+              record.expiration_date || "Not set",
+            ];
+          })}
         />
       </div>
     </section>
