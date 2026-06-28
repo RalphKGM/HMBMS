@@ -63,6 +63,11 @@ function App() {
   const visiblePages = getVisiblePages(currentUser?.role);
   const activePage = visiblePages.includes(page) ? page : "Dashboard";
   const canManageUsers = currentUser?.role === "Admin";
+
+  if (!currentUser) {
+    return <Login />;
+  }
+
   const displayName = currentUser.name || currentUser.username || "HMB Staff";
   const initials =
     displayName
@@ -72,10 +77,6 @@ function App() {
       .join("")
       .slice(0, 2)
       .toUpperCase() || "HM";
-
-  if (!currentUser) {
-    return <Login />;
-  }
 
   return (
     <main className="min-h-screen bg-[#f4f7fb] text-slate-900">
