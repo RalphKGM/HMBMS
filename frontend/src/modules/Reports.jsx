@@ -60,6 +60,7 @@ async function fetchReportsData(apiBase) {
 function Reports() {
   const [reportType, setReportType] = useState("collection");
   const [period, setPeriod] = useState("month");
+  const [search, setSearch] = useState("");
   const [reportData, setReportData] = useState(emptyReportData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -177,42 +178,192 @@ function Reports() {
   };
 
   const report = reports[reportType];
+  const periodLabels = {
+    week: "Weekly",
+    month: "Monthly",
+    year: "Yearly",
+    all: "All Time",
+  };
+
+  const reportStats = useMemo(() => {
+    if (reportType === "collection") {
+      return [
+        {
+          label: "Collections",
+          value: filteredCollections.length,
+          note: "Donation records in range",
+        },
+        {
+          label: "Collected Volume",
+          value: `${filteredCollections.reduce((total, item) => total + Number(item.volume_ml || 0), 0)} mL`,
+          note: "Total donor milk collected",
+        },
+        {
+          label: "Donors",
+          value: new Set(filteredCollections.map((item) => item.donor_id)).size,
+          note: "Unique donors represented",
+        },
+      ];
+    }
+
+    if (reportType === "pasteurization") {
+      return [
+        {
+          label: "Test Records",
+          value: filteredPasteurization.length,
+          note: "Pasteurization logs in range",
+        },
+        {
+          label: "Passed",
+          value: filteredPasteurization.filter((item) => item.post_test_result === "Passed").length,
+          note: "Released after post-test",
+        },
+        {
+          label: "Failed",
+          value: filteredPasteurization.filter(
+            (item) => item.pre_test_result === "Failed" || item.post_test_result === "Failed",
+          ).length,
+          note: "Rejected during testing",
+        },
+      ];
+    }
+
+    return [
+      {
+        label: "Transactions",
+        value: filteredDispensing.length,
+        note: "Dispensing records in range",
+      },
+      {
+        label: "Dispensed Volume",
+        value: `${filteredDispensing.reduce((total, item) => total + Number(item.volume_dispensed || 0), 0)} mL`,
+        note: "Total milk released",
+      },
+      {
+        label: "Total Price",
+        value: money(filteredDispensing.reduce((total, item) => total + Number(item.price || 0), 0)),
+        note: "Amount recorded",
+      },
+    ];
+  }, [filteredCollections, filteredDispensing, filteredPasteurization, reportType]);
+
+  const filteredReportRows = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    if (!normalizedSearch) return report.rows;
+
+    return report.rows.filter((row) =>
+      row.some((cell) => String(cell ?? "").toLowerCase().includes(normalizedSearch)),
+    );
+  }, [report.rows, search]);
 
   if (loading) {
-    return <p>Loading reports...</p>;
+    return (
+      <section>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p>Loading reports...</p>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <section>
-      <h2>Reports</h2>
+    <section className="gap-5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="section-header">
+          <div>
+            <h2>Reports</h2>
+            <p className="mt-2 max-w-2xl text-sm">
+              Generate collection, pasteurization, and dispensing reports by weekly, monthly, yearly, or all-time views.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {error && <p className="message">{error}</p>}
-      <p>Report views are grouped by week, month, or year.</p>
-      <label>
-        Report Type
-        <select value={reportType} onChange={(event) => setReportType(event.target.value)}>
-          <option value="collection">Collection Report</option>
-          <option value="pasteurization">Pasteurization Report</option>
-          <option value="dispensing">Dispensing Report</option>
-        </select>
-      </label>
-      <label>
-        Time Range
-        <select value={period} onChange={(event) => setPeriod(event.target.value)}>
-          <option value="week">Weekly</option>
-          <option value="month">Monthly</option>
-          <option value="year">Yearly</option>
-          <option value="all">All Time</option>
-        </select>
-      </label>
-      <button onClick={() => window.print()} type="button">
-        Print
-      </button>
-      <h3>{report.title}</h3>
-      <p>{report.subtitle}</p>
-      {!report.rows.length && (
-        <p className="message">No records for this view yet. Try Monthly or All Time.</p>
-      )}
-      <Table headers={report.headers} rows={report.rows} />
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="section-header mb-4">
+          <div>
+            <h3>Report Settings</h3>
+            <p className="mt-1 text-sm">
+              Choose the report category and time range before reviewing or printing.
+            </p>
+          </div>
+        </div>
+        <div className="grid max-w-3xl gap-3 sm:grid-cols-2">
+          <label>
+            Report Type
+            <select value={reportType} onChange={(event) => setReportType(event.target.value)}>
+              <option value="collection">Collection Report</option>
+              <option value="pasteurization">Pasteurization Report</option>
+              <option value="dispensing">Dispensing Report</option>
+            </select>
+          </label>
+          <label>
+            Time Range
+            <select value={period} onChange={(event) => setPeriod(event.target.value)}>
+              <option value="week">Weekly</option>
+              <option value="month">Monthly</option>
+              <option value="year">Yearly</option>
+              <option value="all">All Time</option>
+            </select>
+          </label>
+          <div className="flex items-end sm:col-span-2">
+            <button
+              onClick={() => window.print()}
+              type="button"
+              className="border-blue-600 bg-blue-600 px-4 text-white hover:border-blue-700 hover:bg-blue-700"
+            >
+              Print Report
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {reportStats.map((stat) => (
+          <article
+            key={stat.label}
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+              {stat.label}
+            </p>
+            <p className="mt-3 text-3xl font-semibold text-[#003b90]">{stat.value}</p>
+            <p className="mt-1 text-sm text-slate-500">{stat.note}</p>
+          </article>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="section-header mb-4">
+          <div>
+            <h3>{report.title}</h3>
+            <p className="mt-1 text-sm">
+              {periodLabels[period]} view. Search only affects the table below.
+            </p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+            {filteredReportRows.length} of {report.rows.length} {report.rows.length === 1 ? "record" : "records"}
+          </span>
+        </div>
+
+        <div className="mb-4 max-w-xs">
+          <label>
+            Search
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search current report"
+            />
+          </label>
+        </div>
+
+        {!report.rows.length && (
+          <p className="message">No records for this view yet. Try Monthly or All Time.</p>
+        )}
+        <Table headers={report.headers} rows={filteredReportRows} />
+      </div>
     </section>
   );
 }
