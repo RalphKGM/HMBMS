@@ -60,8 +60,10 @@ function MilkRecords({ currentUser }) {
   const [query, setQuery] = useState("");
   const [singleForm, setSingleForm] = useState(initialForm);
   const [poolForm, setPoolForm] = useState(initialPoolForm);
-  const [isPooledMode, setIsPooledMode] = useState(false);
   const [selectedPoolBatchId, setSelectedPoolBatchId] = useState("");
+  const [summaryBatchId, setSummaryBatchId] = useState("");
+  const [showSingleModal, setShowSingleModal] = useState(false);
+  const [showPoolModal, setShowPoolModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -164,22 +166,38 @@ function MilkRecords({ currentUser }) {
   }, [collections, donorNames, query]);
 
   const selectedBatch = useMemo(
-    () => batches.find((batch) => String(batch.batch_id) === String(selectedPoolBatchId)) || null,
-    [batches, selectedPoolBatchId],
+    () => batches.find((batch) => String(batch.batch_id) === String(summaryBatchId)) || null,
+    [batches, summaryBatchId],
+  );
+
+  const summaryContributors = useMemo(() => {
+    if (!selectedBatch) return [];
+    return (collectionsByBatch[selectedBatch.batch_id] || []).slice().sort((left, right) => {
+      return left.collection_id - right.collection_id;
+    });
+  }, [collectionsByBatch, selectedBatch]);
+
+  const milkRecordStats = useMemo(
+    () => [
+      { label: "Collection Entries", value: collections.length, note: "Recorded donor sessions" },
+      { label: "Milk Batches", value: batches.length, note: "Generated batch records" },
+      { label: "Pooled Batches", value: pooledBatches.length, note: "Batches with pooled milk" },
+    ],
+    [batches.length, collections.length, pooledBatches.length],
   );
 
   const selectedBatchSummary = useMemo(() => {
     if (!selectedBatch) return null;
     return {
-      collectionDate: batchContributors[0]?.collection_date || selectedBatch.created_at?.slice(0, 10) || "Not set",
-      collectionType: batchContributors[0]?.collection_type || poolForm.collectionType,
-      collectedBy: batchContributors[0]
-        ? userNames[batchContributors[0].collected_by] || "Unknown"
+      collectionDate: summaryContributors[0]?.collection_date || selectedBatch.created_at?.slice(0, 10) || "Not set",
+      collectionType: summaryContributors[0]?.collection_type || "Not set",
+      collectedBy: summaryContributors[0]
+        ? userNames[summaryContributors[0].collected_by] || "Unknown"
         : "Unknown",
       totalVolume: Number(selectedBatch.total_volume || 0),
       status: selectedBatch.status,
     };
-  }, [batchContributors, poolForm.collectionType, selectedBatch, userNames]);
+  }, [selectedBatch, summaryContributors, userNames]);
 
   const resetSingleForm = () => {
     setSingleForm(initialForm);
@@ -187,6 +205,21 @@ function MilkRecords({ currentUser }) {
 
   const resetPoolForm = () => {
     setPoolForm(initialPoolForm);
+  };
+
+  const closeSingleModal = () => {
+    if (saving) return;
+    setError("");
+    resetSingleForm();
+    setShowSingleModal(false);
+  };
+
+  const closePoolModal = () => {
+    if (saving) return;
+    setError("");
+    resetPoolForm();
+    setSelectedPoolBatchId("");
+    setShowPoolModal(false);
   };
 
   const saveSingleCollection = async (event) => {
@@ -212,6 +245,7 @@ function MilkRecords({ currentUser }) {
 
       setMessage(`Milk collection saved under ${body.batch?.batch_number || "new batch"}.`);
       resetSingleForm();
+      setShowSingleModal(false);
       await loadMilkRecords();
     } catch (saveError) {
       setError(saveError.message || "Failed to save collection.");
@@ -313,238 +347,426 @@ function MilkRecords({ currentUser }) {
         batches.find((batch) => batch.batch_id === collection.batch_id)?.batch_number ||
           `Batch #${collection.batch_id}`,
         entryNumber > 0 ? entryNumber : 1,
-        donorOptions.find((donor) => donor.donor_id === collection.donor_id)?.dtn ||
+        donors.find((donor) => donor.donor_id === collection.donor_id)?.dtn ||
           "Unknown",
         donorNames[collection.donor_id] || "Unknown",
         `${collection.volume_ml} mL`,
         collection.collection_type,
         collection.collection_date,
         userNames[collection.collected_by] || "Unknown",
-        collection.status,
+        <span
+          key={`status-${collection.collection_id}`}
+          className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600"
+        >
+          {collection.status}
+        </span>,
       ];
     });
-  }, [batches, collectionsByBatch, donorNames, donorOptions, filteredCollections, userNames]);
+  }, [batches, collectionsByBatch, donorNames, donors, filteredCollections, userNames]);
+
+  const batchRows = useMemo(() => {
+    return batches.map((batch) => [
+      <span key={`batch-${batch.batch_id}`} className="font-semibold text-slate-900">
+        {batch.batch_number}
+      </span>,
+      `${batch.total_volume} mL`,
+      `${batch.available_volume} mL`,
+      <span
+        key={`status-${batch.batch_id}`}
+        className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700"
+      >
+        {batch.status}
+      </span>,
+      batch.expiration_date || "Not set",
+      <button
+        key={`summary-${batch.batch_id}`}
+        type="button"
+        className="min-h-0 border-slate-300 px-3 py-1.5 text-xs"
+        onClick={() => setSummaryBatchId(String(batch.batch_id))}
+      >
+        View Summary
+      </button>,
+    ]);
+  }, [batches]);
 
   if (loading) {
-    return <p>Loading milk records...</p>;
+    return (
+      <section>
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p>Loading milk records...</p>
+        </div>
+      </section>
+    );
   }
 
   return (
-    <section>
-      <h2>Milk Records</h2>
-      {error && <p className="message">{error}</p>}
+    <section className="gap-5">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="section-header">
+          <div>
+            <h2>Milk Records</h2>
+            <p className="mt-2 max-w-2xl text-sm">
+              Record donor milk collections, manage pooled batches, and review batch inventory.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {milkRecordStats.map((stat) => (
+          <article
+            key={stat.label}
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+              {stat.label}
+            </p>
+            <p className="mt-3 text-3xl font-semibold text-[#003b90]">{stat.value}</p>
+            <p className="mt-1 text-sm text-slate-500">{stat.note}</p>
+          </article>
+        ))}
+      </div>
+
       {message && <p className="message">{message}</p>}
+      {error && <p className="message">{error}</p>}
 
-      <label>
-        <input
-          type="checkbox"
-          checked={isPooledMode}
-          onChange={(event) => setIsPooledMode(event.target.checked)}
-        />{" "}
-        Create Pooled Batch
-      </label>
-
-      {!isPooledMode ? (
-        <form onSubmit={saveSingleCollection}>
-          <label>
-            Donor
-            <select
-              required
-              value={singleForm.donorId}
-              onChange={(event) => setSingleForm({ ...singleForm, donorId: event.target.value })}
-            >
-              <option value="">Select donor</option>
-              {donorOptions.map((donor) => (
-                <option key={donor.donor_id} value={donor.donor_id}>
-                  {donor.dtn} - {donorNames[donor.donor_id]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Collection Type
-            <select
-              value={singleForm.collectionType}
-              onChange={(event) =>
-                setSingleForm({ ...singleForm, collectionType: event.target.value })
-              }
-            >
-              <option value="Supsup Todo">Supsup Todo</option>
-              <option value="Milky Way">Milky Way</option>
-              <option value="Mom's Act">Mom's Act</option>
-            </select>
-          </label>
-          <label>
-            Collection Date{" "}
-            <input
-              required
-              type="date"
-              value={singleForm.collectionDate}
-              onChange={(event) =>
-                setSingleForm({ ...singleForm, collectionDate: event.target.value })
-              }
-            />
-          </label>
-          <label>
-            Volume (mL){" "}
-            <input
-              required
-              min="30"
-              max="240"
-              type="number"
-              value={singleForm.volumeMl}
-              onChange={(event) => setSingleForm({ ...singleForm, volumeMl: event.target.value })}
-            />
-          </label>
-          <p>Each donation session must be between 30 mL and 240 mL.</p>
-          <button type="submit" disabled={saving}>
-            {saving ? "Saving..." : "Save Collection"}
-          </button>
-        </form>
-      ) : (
-        <section>
-          <h3>Create Pooled Batch</h3>
-          <label>
-            Collection Type
-            <select
-              value={poolForm.collectionType}
-              onChange={(event) => setPoolForm({ ...poolForm, collectionType: event.target.value })}
-            >
-              <option value="Supsup Todo">Supsup Todo</option>
-              <option value="Milky Way">Milky Way</option>
-              <option value="Mom's Act">Mom's Act</option>
-            </select>
-          </label>
-          <label>
-            Collection Date{" "}
-            <input
-              required
-              type="date"
-              value={poolForm.collectionDate}
-              onChange={(event) => setPoolForm({ ...poolForm, collectionDate: event.target.value })}
-              disabled={Boolean(selectedPoolBatchId && batchContributors[0]?.collection_date)}
-            />
-          </label>
-          {selectedPoolBatchId && batchContributors[0]?.collection_date && (
-            <p>Collection date is locked to {batchContributors[0].collection_date} for this batch.</p>
-          )}
-          <button type="button" onClick={createPooledBatch} disabled={saving}>
-            {saving ? "Creating..." : "Create Pooled Batch"}
-          </button>
-
-          <h3>Add Contributor to Batch</h3>
-          <label>
-            Pooled Batch
-            <select
-              value={selectedPoolBatchId}
-              onChange={(event) => {
-                setSelectedPoolBatchId(event.target.value);
-                const nextBatch = batches.find((batch) => String(batch.batch_id) === event.target.value);
-                const nextDate = nextBatch
-                  ? (collectionsByBatch[nextBatch.batch_id]?.[0]?.collection_date || poolForm.collectionDate)
-                  : poolForm.collectionDate;
-                setPoolForm((current) => ({
-                  ...current,
-                  collectionDate: nextDate,
-                }));
-              }}
-            >
-              <option value="">Select pooled batch</option>
-              {pooledBatches.map((batch) => (
-                <option key={batch.batch_id} value={batch.batch_id}>
-                  {batch.batch_number} - {batch.total_volume} mL
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Donor
-            <select
-              value={poolForm.donorId}
-              onChange={(event) => setPoolForm({ ...poolForm, donorId: event.target.value })}
-            >
-              <option value="">Select donor</option>
-              {donorOptions.map((donor) => (
-                <option key={donor.donor_id} value={donor.donor_id}>
-                  {donor.dtn} - {donorNames[donor.donor_id]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Volume (mL){" "}
-            <input
-              required
-              min="30"
-              max="240"
-              type="number"
-              value={poolForm.volumeMl}
-              onChange={(event) => setPoolForm({ ...poolForm, volumeMl: event.target.value })}
-            />
-          </label>
-          <p>Each contribution must be between 30 mL and 240 mL.</p>
-          <button type="button" onClick={addContributorToBatch} disabled={saving}>
-            {saving ? "Saving..." : "Add to Batch"}
-          </button>
-        </section>
+      {showSingleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="section-header mb-4">
+              <div>
+                <h3>New Milk Collection</h3>
+                <p className="mt-1 text-sm">
+                  Create one batch from one donor collection session.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="h-10 w-10 rounded-full border-slate-200 bg-slate-50 p-0 text-lg text-slate-600 hover:bg-slate-100"
+                onClick={closeSingleModal}
+                aria-label="Close collection modal"
+              >
+                X
+              </button>
+            </div>
+            <form onSubmit={saveSingleCollection}>
+              <label>
+                Donor
+                <select
+                  required
+                  value={singleForm.donorId}
+                  onChange={(event) => setSingleForm({ ...singleForm, donorId: event.target.value })}
+                >
+                  <option value="">Select donor</option>
+                  {donorOptions.map((donor) => (
+                    <option key={donor.donor_id} value={donor.donor_id}>
+                      {donor.dtn} - {donorNames[donor.donor_id]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Collection Type
+                <select
+                  value={singleForm.collectionType}
+                  onChange={(event) =>
+                    setSingleForm({ ...singleForm, collectionType: event.target.value })
+                  }
+                >
+                  <option value="Supsup Todo">Supsup Todo</option>
+                  <option value="Milky Way">Milky Way</option>
+                  <option value="Mom's Act">Mom's Act</option>
+                </select>
+              </label>
+              <label>
+                Collection Date
+                <input
+                  required
+                  type="date"
+                  value={singleForm.collectionDate}
+                  onChange={(event) =>
+                    setSingleForm({ ...singleForm, collectionDate: event.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Volume (mL)
+                <input
+                  required
+                  min="30"
+                  max="240"
+                  type="number"
+                  value={singleForm.volumeMl}
+                  onChange={(event) => setSingleForm({ ...singleForm, volumeMl: event.target.value })}
+                />
+              </label>
+              <p className="text-sm sm:col-span-2 xl:col-span-3">
+                Each donation session must be between 30 mL and 240 mL.
+              </p>
+              <div className="flex flex-wrap justify-end gap-3 sm:col-span-2 xl:col-span-3">
+                <button type="button" onClick={closeSingleModal} disabled={saving}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
+                  disabled={saving}
+                >
+                  {saving ? "Saving..." : "Save Collection"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
-      <h3>Collection Records</h3>
-      <label>
-        Search{" "}
-        <input value={query} onChange={(event) => setQuery(event.target.value)} />
-      </label>
-      <Table
-        headers={[
-          "Batch Number",
-          "Entry Number",
-          "Donor DTN",
-          "Donor Name",
-          "Volume",
-          "Collection Type",
-          "Collection Date",
-          "Collected By",
-          "Status",
-        ]}
-        rows={pooledCollectionRows}
-      />
+      {showPoolModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="section-header mb-4">
+              <div>
+                <h3>Manage Pooled Batch</h3>
+                <p className="mt-1 text-sm">
+                  Create a pooled batch first, then add donor contributions to that batch.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="h-10 w-10 rounded-full border-slate-200 bg-slate-50 p-0 text-lg text-slate-600 hover:bg-slate-100"
+                onClick={closePoolModal}
+                aria-label="Close pooled batch modal"
+              >
+                X
+              </button>
+            </div>
 
-      <h3>Milk Batches</h3>
-      <Table
-        headers={["Batch Number", "Total Volume", "Available Volume", "Status", "Expiration"]}
-        rows={batches.map((batch) => [
-          batch.batch_number,
-          `${batch.total_volume} mL`,
-          `${batch.available_volume} mL`,
-          batch.status,
-          batch.expiration_date || "Not set",
-        ])}
-      />
+            <div className="grid gap-5 lg:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h3 className="text-base">Create Pooled Batch</h3>
+                <div className="mt-4 grid gap-4">
+                  <label>
+                    Collection Type
+                    <select
+                      value={poolForm.collectionType}
+                      onChange={(event) => setPoolForm({ ...poolForm, collectionType: event.target.value })}
+                    >
+                      <option value="Supsup Todo">Supsup Todo</option>
+                      <option value="Milky Way">Milky Way</option>
+                      <option value="Mom's Act">Mom's Act</option>
+                    </select>
+                  </label>
+                  <label>
+                    Collection Date
+                    <input
+                      required
+                      type="date"
+                      value={poolForm.collectionDate}
+                      onChange={(event) => setPoolForm({ ...poolForm, collectionDate: event.target.value })}
+                      disabled={Boolean(selectedPoolBatchId && batchContributors[0]?.collection_date)}
+                    />
+                  </label>
+                  {selectedPoolBatchId && batchContributors[0]?.collection_date && (
+                    <p className="text-sm">
+                      Collection date is locked to {batchContributors[0].collection_date} for this batch.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    className="border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
+                    onClick={createPooledBatch}
+                    disabled={saving}
+                  >
+                    {saving ? "Creating..." : "Create Pooled Batch"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h3 className="text-base">Add Contributor</h3>
+                <div className="mt-4 grid gap-4">
+                  <label>
+                    Pooled Batch
+                    <select
+                      value={selectedPoolBatchId}
+                      onChange={(event) => {
+                        setSelectedPoolBatchId(event.target.value);
+                        const nextBatch = batches.find((batch) => String(batch.batch_id) === event.target.value);
+                        const nextDate = nextBatch
+                          ? (collectionsByBatch[nextBatch.batch_id]?.[0]?.collection_date || poolForm.collectionDate)
+                          : poolForm.collectionDate;
+                        setPoolForm((current) => ({
+                          ...current,
+                          collectionDate: nextDate,
+                        }));
+                      }}
+                    >
+                      <option value="">Select pooled batch</option>
+                      {pooledBatches.map((batch) => (
+                        <option key={batch.batch_id} value={batch.batch_id}>
+                          {batch.batch_number} - {batch.total_volume} mL
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Donor
+                    <select
+                      value={poolForm.donorId}
+                      onChange={(event) => setPoolForm({ ...poolForm, donorId: event.target.value })}
+                    >
+                      <option value="">Select donor</option>
+                      {donorOptions.map((donor) => (
+                        <option key={donor.donor_id} value={donor.donor_id}>
+                          {donor.dtn} - {donorNames[donor.donor_id]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Volume (mL)
+                    <input
+                      required
+                      min="30"
+                      max="240"
+                      type="number"
+                      value={poolForm.volumeMl}
+                      onChange={(event) => setPoolForm({ ...poolForm, volumeMl: event.target.value })}
+                    />
+                  </label>
+                  <p className="text-sm">Each contribution must be between 30 mL and 240 mL.</p>
+                  <button
+                    type="button"
+                    className="border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
+                    onClick={addContributorToBatch}
+                    disabled={saving}
+                  >
+                    {saving ? "Saving..." : "Add to Batch"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {selectedPoolBatchId && (
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="section-header mb-4">
+                  <div>
+                    <h3>Current Contributors</h3>
+                    <p className="mt-1 text-sm">Contributions already linked to the selected pooled batch.</p>
+                  </div>
+                </div>
+                <Table
+                  headers={["Donor Name", "DTN", "Volume"]}
+                  rows={batchContributors.map((collection) => [
+                    donorNames[collection.donor_id] || "Unknown",
+                    donors.find((donor) => donor.donor_id === collection.donor_id)?.dtn || "Unknown",
+                    `${collection.volume_ml} mL`,
+                  ])}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="section-header mb-4">
+          <div>
+            <h3>Collection Records</h3>
+            <p className="mt-1 text-sm">One row is shown for each donor collection entry.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+              {filteredCollections.length} {filteredCollections.length === 1 ? "record" : "records"}
+            </span>
+            <button
+              type="button"
+              className="border-blue-600 bg-blue-600 px-4 text-white hover:border-blue-700 hover:bg-blue-700"
+              onClick={() => setShowSingleModal(true)}
+            >
+              Add Collection
+            </button>
+            <button type="button" onClick={() => setShowPoolModal(true)}>
+              Manage Pooled Batch
+            </button>
+          </div>
+        </div>
+        <label className="mb-4">
+          Search
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search donor, collection type, or status"
+          />
+        </label>
+        <Table
+          headers={[
+            "Batch Number",
+            "Entry Number",
+            "Donor DTN",
+            "Donor Name",
+            "Volume",
+            "Collection Type",
+            "Collection Date",
+            "Collected By",
+            "Status",
+          ]}
+          rows={pooledCollectionRows}
+        />
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="section-header mb-4">
+          <div>
+            <h3>Milk Batches</h3>
+            <p className="mt-1 text-sm">Review generated batches and open pooling summaries.</p>
+          </div>
+        </div>
+        <Table
+          headers={["Batch Number", "Total Volume", "Available Volume", "Status", "Expiration", "Action"]}
+          rows={batchRows}
+        />
+      </div>
 
       {selectedBatch && (
-        <div>
-          <h3>Pooling Summary - {selectedBatch.batch_number}</h3>
-          <button type="button" onClick={() => setSelectedPoolBatchId("")}>
-            Close
-          </button>
-          {selectedBatchSummary && (
-            <>
-              <p>Collection Date: {selectedBatchSummary.collectionDate}</p>
-              <p>Collection Type: {selectedBatchSummary.collectionType}</p>
-              <p>Collected By: {selectedBatchSummary.collectedBy}</p>
-              <Table
-                headers={["Donor Name", "DTN", "Volume"]}
-                rows={batchContributors.map((collection) => [
-                  donorNames[collection.donor_id] || "Unknown",
-                  donorOptions.find((donor) => donor.donor_id === collection.donor_id)?.dtn ||
-                    "Unknown",
-                  `${collection.volume_ml} mL`,
-                ])}
-              />
-              <p>Total Volume: {selectedBatchSummary.totalVolume} mL</p>
-              <p>Status: {selectedBatchSummary.status}</p>
-            </>
-          )}
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="section-header mb-4">
+              <div>
+                <h3>Pooling Summary - {selectedBatch.batch_number}</h3>
+                <p className="mt-1 text-sm">
+                  Contributor information retained for traceability.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="h-10 w-10 rounded-full border-slate-200 bg-slate-50 p-0 text-lg text-slate-600 hover:bg-slate-100"
+                onClick={() => setSummaryBatchId("")}
+                aria-label="Close pooling summary modal"
+              >
+                X
+              </button>
+            </div>
+            {selectedBatchSummary && (
+              <div className="space-y-4">
+                <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm sm:grid-cols-2">
+                  <p>Collection Date: {selectedBatchSummary.collectionDate}</p>
+                  <p>Collection Type: {selectedBatchSummary.collectionType}</p>
+                  <p>Collected By: {selectedBatchSummary.collectedBy}</p>
+                  <p>Status: {selectedBatchSummary.status}</p>
+                  <p>Total Volume: {selectedBatchSummary.totalVolume} mL</p>
+                </div>
+                <Table
+                  headers={["Donor Name", "DTN", "Volume"]}
+                  rows={summaryContributors.map((collection) => [
+                    donorNames[collection.donor_id] || "Unknown",
+                    donors.find((donor) => donor.donor_id === collection.donor_id)?.dtn ||
+                      "Unknown",
+                    `${collection.volume_ml} mL`,
+                  ])}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </section>
