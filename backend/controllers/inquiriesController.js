@@ -21,8 +21,8 @@ export const listInquiries = async (req, res) => {
       supabase
         .from("milk_inquiries")
         .select(inquirySelectColumns)
-        .order("inquiry_date", { ascending: false })
-        .order("inquiry_id", { ascending: false }),
+        .order("inquiry_date", { ascending: true })
+        .order("inquiry_id", { ascending: true }),
       supabase
         .from("beneficiaries")
         .select(beneficiarySelectColumns)

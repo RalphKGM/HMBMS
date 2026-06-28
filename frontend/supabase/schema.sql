@@ -113,7 +113,7 @@ create table if not exists sms_logs (
   sent_by int references users(user_id) on delete set null,
   sent_at timestamp not null default now(),
   delivery_status varchar(20) not null default 'Sent'
-    check (delivery_status in ('Sent', 'Delivered', 'Failed')),
+    check (delivery_status in ('Sent', 'Failed')),
   created_at timestamp not null default now()
 );
 

@@ -163,7 +163,16 @@ function Dispensing({ currentUser }) {
 
   const doctors = users.filter((user) => user.role === "Doctor");
   const activeBeneficiaries = beneficiaries.filter((beneficiary) => beneficiary.is_active);
-  const pendingInquiries = inquiryData.inquiries.filter((inquiry) => inquiry.status === "Pending");
+  const pendingInquiries = useMemo(() => {
+    return inquiryData.inquiries
+      .filter((inquiry) => inquiry.status === "Pending")
+      .slice()
+      .sort((left, right) => {
+        const dateCompare = String(left.inquiry_date || "").localeCompare(String(right.inquiry_date || ""));
+        if (dateCompare !== 0) return dateCompare;
+        return Number(left.inquiry_id || 0) - Number(right.inquiry_id || 0);
+      });
+  }, [inquiryData.inquiries]);
 
   const filteredPendingInquiries = useMemo(() => {
     const normalizedSearch = inquirySearch.trim().toLowerCase();

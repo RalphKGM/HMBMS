@@ -73,16 +73,22 @@ function Inquiries() {
   }, [data.beneficiaries, data.users]);
 
   const filteredInquiries = useMemo(() => {
-    return data.inquiries.filter((inquiry) => {
-      const beneficiaryName =
-        names.beneficiaryNames[inquiry.beneficiary_id] || `Beneficiary #${inquiry.beneficiary_id}`;
-      const text = `${beneficiaryName} ${inquiry.requested_volume_ml ?? ""} ${inquiry.inquiry_date} ${
-        inquiry.status
-      } ${names.userNames[inquiry.logged_by] || "Unknown"}`;
-      const matchesQuery = text.toLowerCase().includes(query.toLowerCase());
-      const matchesStatus = statusFilter === "all" || inquiry.status === statusFilter;
-      return matchesQuery && matchesStatus;
-    });
+    return data.inquiries
+      .filter((inquiry) => {
+        const beneficiaryName =
+          names.beneficiaryNames[inquiry.beneficiary_id] || `Beneficiary #${inquiry.beneficiary_id}`;
+        const text = `${beneficiaryName} ${inquiry.requested_volume_ml ?? ""} ${inquiry.inquiry_date} ${
+          inquiry.status
+        } ${names.userNames[inquiry.logged_by] || "Unknown"}`;
+        const matchesQuery = text.toLowerCase().includes(query.toLowerCase());
+        const matchesStatus = statusFilter === "all" || inquiry.status === statusFilter;
+        return matchesQuery && matchesStatus;
+      })
+      .sort((left, right) => {
+        const dateCompare = String(left.inquiry_date || "").localeCompare(String(right.inquiry_date || ""));
+        if (dateCompare !== 0) return dateCompare;
+        return Number(left.inquiry_id || 0) - Number(right.inquiry_id || 0);
+      });
   }, [data.inquiries, names.beneficiaryNames, names.userNames, query, statusFilter]);
 
   const inquiryStats = useMemo(() => {
@@ -190,7 +196,7 @@ function Inquiries() {
         <div className="section-header mb-4">
           <div>
             <h3>Inquiry Records</h3>
-            <p className="mt-1 text-sm">Entries are ordered by newest inquiry first.</p>
+            <p className="mt-1 text-sm">Entries are ordered oldest first for first-come, first-served review.</p>
           </div>
         </div>
         <Table
