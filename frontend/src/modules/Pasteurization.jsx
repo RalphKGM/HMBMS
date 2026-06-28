@@ -10,6 +10,7 @@ const initialForm = {
   postTestResult: "",
   postTestDate: today(),
   expirationDate: "",
+  remarks: "",
 };
 
 async function fetchPasteurizationData(apiBase) {
@@ -65,8 +66,8 @@ function Pasteurization({ currentUser }) {
     };
   }, [apiBase]);
 
-  const batches = useMemo(() => data.batches || [], [data.batches]);
-  const records = useMemo(() => data.records || [], [data.records]);
+  const batches = data.batches || [];
+  const records = data.records || [];
 
   const batchNames = useMemo(() => {
     return batches.reduce((names, batch) => {
@@ -174,13 +175,18 @@ function Pasteurization({ currentUser }) {
       return;
     }
 
-    if (selectedBatch?.status !== "Pending Pasteurization") {
+    if (selectedBatch?.status !== "Passed") {
       setError("Select a batch that is pending pasteurization.");
       return;
     }
 
     if (!form.postTestResult) {
       setError("Select a post-test result.");
+      return;
+    }
+
+    if (form.postTestResult === "Passed" && !form.expirationDate) {
+      setError("Enter an expiration date for a batch that passed the post-test.");
       return;
     }
 
@@ -269,7 +275,7 @@ function Pasteurization({ currentUser }) {
           const nextStep =
             batch?.status === "Pending Lab"
               ? "Review pre-test"
-              : batch?.status === "Pending Pasteurization"
+              : batch?.status === "Passed"
                 ? "Complete pasteurization"
                 : "View batch";
 
@@ -330,7 +336,7 @@ function Pasteurization({ currentUser }) {
             </form>
           )}
 
-          {selectedBatch.status === "Pending Pasteurization" && (
+          {selectedBatch.status === "Passed" && (
             <form onSubmit={savePasteurization}>
               <p>Complete the pasteurization step and set the final result.</p>
               <label>
@@ -356,6 +362,17 @@ function Pasteurization({ currentUser }) {
                   ))}
                 </select>
               </label>
+              {form.postTestResult === "Passed" && (
+                <label>
+                  Expiration Date
+                  <input
+                    type="date"
+                    required
+                    value={form.expirationDate}
+                    onChange={(event) => setForm({ ...form, expirationDate: event.target.value })}
+                  />
+                </label>
+              )}
               <label>
                 Remarks
                 <textarea
