@@ -82,11 +82,9 @@ function App() {
     <main className="min-h-screen bg-[#f4f7fb] text-slate-900">
       <aside className="fixed left-0 top-0 hidden h-screen w-72 flex-col border-r border-slate-300 bg-slate-100 lg:flex">
         <div className="px-7 pb-5 pt-6">
-          <h1 className="text-4xl font-semibold leading-tight tracking-normal text-[#003b90]">
-            HMB
-            <span className="block">{currentUser.role}</span>
+          <h1 className="milklink-brand text-4xl font-semibold leading-tight tracking-normal text-[#003b90]">
+            MilkLink
           </h1>
-          <p className="mt-1 text-sm font-semibold tracking-wide text-slate-500">Clinical Unit A</p>
         </div>
 
         <nav className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-4">

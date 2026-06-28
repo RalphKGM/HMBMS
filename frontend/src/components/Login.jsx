@@ -57,7 +57,7 @@ function Login() {
         <section className="hidden gap-6 lg:flex">
           <div>
             <p className="mb-4 inline-flex rounded-full border border-blue-100 bg-white px-4 py-2 text-sm font-semibold text-[#1d5bc4] shadow-sm">
-              Human Milk Bank Management System
+              MilkLink
             </p>
             <h1 className="max-w-2xl text-5xl font-semibold leading-tight tracking-tight text-[#003b90]">
               Secure access for milk bank operations.
@@ -80,7 +80,7 @@ function Login() {
 
         <section className="mx-auto w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
           <div className="mb-7">
-            <p className="text-sm font-bold uppercase tracking-[0.22em] text-slate-500">HMBMS</p>
+            <p className="text-sm font-bold uppercase tracking-[0.22em] text-slate-500">MilkLink</p>
             <h1 className="mt-2 text-3xl font-semibold text-[#003b90]">Welcome Back</h1>
             <p className="mt-2 text-sm text-slate-500">
               Enter your staff credentials to continue.
