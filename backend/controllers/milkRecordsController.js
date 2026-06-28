@@ -23,7 +23,12 @@ function normalizeContributors(contributors) {
       donorId: Number(contributor?.donorId),
       volumeMl: Number(contributor?.volumeMl),
     }))
-    .filter((contributor) => Number.isInteger(contributor.donorId) && Number.isFinite(contributor.volumeMl));
+    .filter(
+      (contributor) =>
+        Number.isInteger(contributor.donorId) &&
+        contributor.donorId > 0 &&
+        Number.isFinite(contributor.volumeMl),
+    );
 }
 
 async function assertDailyLimitForContributors(contributors, collectionDate) {
@@ -160,7 +165,7 @@ export const createMilkCollection = async (req, res) => {
     }
 
     for (const contributor of normalizedContributors) {
-      if (!Number.isInteger(contributor.donorId)) {
+      if (!Number.isInteger(contributor.donorId) || contributor.donorId <= 0) {
         return res.status(400).json({ error: "Each contributor must have a valid donor." });
       }
 
@@ -169,7 +174,7 @@ export const createMilkCollection = async (req, res) => {
         return res.status(400).json({ error: volumeError });
       }
     }
-  } else if (!Number.isInteger(parsedDonorId) || !volume) {
+  } else if (!Number.isInteger(parsedDonorId) || parsedDonorId <= 0 || !volume) {
     return res.status(400).json({
       error: "donorId and positive volumeMl are required.",
     });

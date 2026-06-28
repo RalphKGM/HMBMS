@@ -181,18 +181,6 @@ function MilkRecords({ currentUser }) {
     };
   }, [batchContributors, poolForm.collectionType, selectedBatch, userNames]);
 
-  useEffect(() => {
-    if (!selectedPoolBatchId) return;
-
-    const firstContributorDate = batchContributors[0]?.collection_date;
-    if (firstContributorDate) {
-      setPoolForm((current) => ({
-        ...current,
-        collectionDate: firstContributorDate,
-      }));
-    }
-  }, [batchContributors, selectedPoolBatchId]);
-
   const resetSingleForm = () => {
     setSingleForm(initialForm);
   };

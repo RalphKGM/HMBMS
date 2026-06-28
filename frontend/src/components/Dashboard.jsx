@@ -59,7 +59,7 @@ function Dashboard() {
     };
   }, [apiBase]);
 
-  const availableBatches = summary.availableBatches || [];
+  const availableBatches = useMemo(() => summary.availableBatches || [], [summary.availableBatches]);
   const recentBatches = availableBatches.slice(0, 4);
   const lowStockBatches = useMemo(() => {
     return [...availableBatches]

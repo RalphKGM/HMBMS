@@ -65,8 +65,8 @@ function Pasteurization({ currentUser }) {
     };
   }, [apiBase]);
 
-  const batches = data.batches || [];
-  const records = data.records || [];
+  const batches = useMemo(() => data.batches || [], [data.batches]);
+  const records = useMemo(() => data.records || [], [data.records]);
 
   const batchNames = useMemo(() => {
     return batches.reduce((names, batch) => {

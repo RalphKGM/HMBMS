@@ -73,7 +73,7 @@ export const savePasteurizationRecord = async (req, res) => {
   } = req.body || {};
   const parsedBatchId = Number(batchId);
 
-  if (!Number.isInteger(parsedBatchId) || !preTestResult || !preTestDate) {
+  if (!Number.isInteger(parsedBatchId) || parsedBatchId <= 0 || !preTestResult || !preTestDate) {
     return res.status(400).json({
       error: "batchId, preTestResult, and preTestDate are required.",
     });

@@ -13,6 +13,13 @@ const requiredTables = [
   "sms_logs",
 ];
 
+const requiredColumnChecks = [
+  {
+    table: "milk_inquiries",
+    columns: "inquiry_id, beneficiary_id, requested_volume_ml, inquiry_date, status, logged_by, created_at",
+  },
+];
+
 function isMissingTableError(error) {
   return error?.code === "PGRST205" || error?.message?.includes("schema cache");
 }
@@ -39,6 +46,14 @@ export const getSetupStatus = async (req, res) => {
       } else {
         errors.push({ table, message: error.message });
       }
+    }
+  }
+
+  for (const check of requiredColumnChecks) {
+    const { error } = await supabase.from(check.table).select(check.columns).limit(1);
+
+    if (error) {
+      errors.push({ table: check.table, message: error.message });
     }
   }
 

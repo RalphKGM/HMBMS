@@ -54,7 +54,9 @@ export const createDispensingTransaction = async (req, res) => {
 
   if (
     !Number.isInteger(parsedBeneficiaryId) ||
+    parsedBeneficiaryId <= 0 ||
     !Number.isInteger(parsedBatchId) ||
+    parsedBatchId <= 0 ||
     !volume ||
     volume <= 0
   ) {

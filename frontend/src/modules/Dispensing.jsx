@@ -162,7 +162,7 @@ function Dispensing({ currentUser }) {
   const activeBeneficiaries = beneficiaries.filter((beneficiary) => beneficiary.is_active);
   const pendingInquiries = inquiryData.inquiries.filter((inquiry) => inquiry.status === "Pending");
 
-  const useInquiry = (inquiry) => {
+  const applyInquiry = (inquiry) => {
     setForm((current) => ({
       ...current,
       beneficiaryId: String(inquiry.beneficiary_id),
@@ -298,7 +298,7 @@ function Dispensing({ currentUser }) {
           beneficiaryNames[inquiry.beneficiary_id] || `Beneficiary #${inquiry.beneficiary_id}`,
           inquiry.requested_volume_ml != null ? `${inquiry.requested_volume_ml} mL` : "Not set",
           inquiry.inquiry_date,
-          <button key={`use-${inquiry.inquiry_id}`} type="button" onClick={() => useInquiry(inquiry)}>
+          <button key={`use-${inquiry.inquiry_id}`} type="button" onClick={() => applyInquiry(inquiry)}>
             Use Inquiry
           </button>,
         ])}
