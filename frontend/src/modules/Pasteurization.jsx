@@ -32,6 +32,10 @@ function Pasteurization({ currentUser }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [selectedBatchId, setSelectedBatchId] = useState("");
+  const [queueSearch, setQueueSearch] = useState("");
+  const [queueStageFilter, setQueueStageFilter] = useState("All");
+  const [recordSearch, setRecordSearch] = useState("");
+  const [recordResultFilter, setRecordResultFilter] = useState("All");
   const [form, setForm] = useState(initialForm);
   const [data, setData] = useState({
     batches: [],
@@ -104,6 +108,53 @@ function Pasteurization({ currentUser }) {
       return batch && !["Available", "Disposed"].includes(batch.status);
     });
   }, [batchById, records]);
+
+  const filteredWorkQueue = useMemo(() => {
+    const normalizedSearch = queueSearch.trim().toLowerCase();
+
+    return workQueue.filter((record) => {
+      const batch = batchById[record.batch_id];
+      const stage = batch?.status || "Unknown";
+      const searchableText = [
+        batch?.batch_number,
+        record.pre_test_date,
+        record.post_test_date,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const matchesSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
+      const matchesStage = queueStageFilter === "All" || stage === queueStageFilter;
+
+      return matchesSearch && matchesStage;
+    });
+  }, [batchById, queueSearch, queueStageFilter, workQueue]);
+
+  const filteredRecords = useMemo(() => {
+    const normalizedSearch = recordSearch.trim().toLowerCase();
+
+    return records.filter((record) => {
+      const batchName = batchNames[record.batch_id] || "";
+      const searchableText = [
+        batchName,
+        record.pre_test_date,
+        record.post_test_date,
+        record.expiration_date,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      const matchesSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
+      const matchesResult =
+        recordResultFilter === "All" ||
+        record.pre_test_result === recordResultFilter ||
+        record.post_test_result === recordResultFilter;
+
+      return matchesSearch && matchesResult;
+    });
+  }, [batchNames, recordResultFilter, recordSearch, records]);
 
   const pasteurizationStats = useMemo(
     () => [
@@ -325,12 +376,34 @@ function Pasteurization({ currentUser }) {
             </p>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
-            {workQueue.length} {workQueue.length === 1 ? "batch" : "batches"}
+            {filteredWorkQueue.length} of {workQueue.length} {workQueue.length === 1 ? "batch" : "batches"}
           </span>
+        </div>
+        <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+          <label>
+            Search Queue
+            <input
+              value={queueSearch}
+              onChange={(event) => setQueueSearch(event.target.value)}
+              placeholder="Search batch number or date"
+            />
+          </label>
+          <label>
+            Stage
+            <select
+              value={queueStageFilter}
+              onChange={(event) => setQueueStageFilter(event.target.value)}
+            >
+              <option value="All">All stages</option>
+              <option value="Pending Lab">Pending Lab</option>
+              <option value="Passed">Pending Pasteurization</option>
+              <option value="Failed">Failed</option>
+            </select>
+          </label>
         </div>
         <Table
           headers={["Batch Number", "Stage", "Last Test", "Next Step", "Action"]}
-          rows={workQueue.map((record) => {
+          rows={filteredWorkQueue.map((record) => {
             const batch = batchById[record.batch_id];
             const nextStep =
               batch?.status === "Pending Lab"
@@ -513,12 +586,33 @@ function Pasteurization({ currentUser }) {
             </p>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
-            {records.length} {records.length === 1 ? "record" : "records"}
+            {filteredRecords.length} of {records.length} {records.length === 1 ? "record" : "records"}
           </span>
+        </div>
+        <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+          <label>
+            Search Records
+            <input
+              value={recordSearch}
+              onChange={(event) => setRecordSearch(event.target.value)}
+              placeholder="Search batch number, date, or expiration"
+            />
+          </label>
+          <label>
+            Result
+            <select
+              value={recordResultFilter}
+              onChange={(event) => setRecordResultFilter(event.target.value)}
+            >
+              <option value="All">All results</option>
+              <option value="Passed">Passed</option>
+              <option value="Failed">Failed</option>
+            </select>
+          </label>
         </div>
         <Table
           headers={["Batch", "Pre-test", "Pre-test Date", "Post-test", "Post-test Date", "Expiration"]}
-          rows={records.map((record) => [
+          rows={filteredRecords.map((record) => [
             <span key={`record-batch-${record.pasteurization_id}`} className="font-semibold text-slate-900">
               {batchNames[record.batch_id] || "Unknown"}
             </span>,
