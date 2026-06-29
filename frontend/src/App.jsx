@@ -204,18 +204,18 @@ function App() {
   const renderNavigation = ({ showBrand = true } = {}) => (
     <>
       {showBrand && (
-        <div className="px-7 pb-2 pt-5">
-          <h1 className="milklink-brand text-4xl font-bold leading-tight tracking-normal text-[#003b90]">
+        <div className="px-6 pb-1 pt-5">
+          <h1 className="milklink-brand text-[2.1rem] font-bold leading-tight tracking-normal text-[#003b90]">
             MilkLink
           </h1>
         </div>
       )}
 
-      <nav className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-4">
+      <nav className="flex flex-1 flex-col gap-2 overflow-y-auto px-3.5 py-3.5">
         {visiblePages.map((item) => (
           <button
             aria-current={activePage === item ? "page" : undefined}
-            className={`flex min-h-11 w-full items-center justify-start gap-4 rounded-lg border-0 px-4 py-2.5 text-left text-sm font-bold tracking-[0.04em] shadow-none transition-all duration-150 active:scale-[0.98] ${
+            className={`flex min-h-[2.625rem] w-full items-center justify-start gap-3.5 rounded-lg border-0 px-3.5 py-2.5 text-left text-sm font-bold tracking-[0.04em] shadow-none transition-all duration-150 active:scale-[0.98] ${
               activePage === item
                 ? "bg-[#1d5bc4] text-white"
                 : "bg-transparent text-slate-700 hover:bg-[#dbe8ff] hover:text-[#003b90]"
@@ -230,10 +230,10 @@ function App() {
         ))}
       </nav>
 
-      <div className="border-t border-slate-300 px-5 py-4">
-        <div className="mb-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="border-t border-slate-300 px-4 py-3.5">
+        <div className="mb-2.5 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#1d5bc4] text-sm font-bold text-white">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1d5bc4] text-xs font-bold text-white">
               {initials}
             </div>
             <div className="min-w-0">
@@ -246,7 +246,7 @@ function App() {
           </div>
         </div>
         <button
-          className="flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-bold text-slate-700 shadow-sm transition-all duration-150 hover:border-[#1d5bc4] hover:bg-[#dbe8ff] hover:text-[#003b90] active:scale-[0.98]"
+          className="flex min-h-[2.625rem] w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-bold text-slate-700 shadow-sm transition-all duration-150 hover:border-[#1d5bc4] hover:bg-[#dbe8ff] hover:text-[#003b90] active:scale-[0.98]"
           onClick={handleLogout}
           type="button"
         >
@@ -292,7 +292,7 @@ function App() {
           isMobileNavOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex items-start justify-between gap-3 px-7 pb-5 pt-6">
+        <div className="flex items-start justify-between gap-3 px-6 pb-3 pt-5">
           <h1 className="milklink-brand min-w-0 text-4xl font-semibold leading-tight tracking-normal text-[#003b90]">
             MilkLink
           </h1>
