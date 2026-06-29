@@ -70,7 +70,9 @@ function ManageUsers() {
     setFormError("");
     setFormSuccess("");
 
-    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
+    const apiBase =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? "http://localhost:4000" : "/api");
 
     try {
       const response = await fetch(`${apiBase}/api/users/${user.user_id}`, {
@@ -160,7 +162,9 @@ function ManageUsers() {
   }, [users]);
 
   const loadUsers = async() => {
-    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
+    const apiBase =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? "http://localhost:4000" : "/api");
 
     try {
       setUsers(await fetchUsers(apiBase));
@@ -193,7 +197,9 @@ function ManageUsers() {
 
   useEffect(() => {
     let isMounted = true;
-    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
+    const apiBase =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? "http://localhost:4000" : "/api");
 
     fetchUsers(apiBase)
       .then((records) => {
@@ -219,7 +225,9 @@ function ManageUsers() {
     setFormError("");
     setFormSuccess("");
 
-    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
+    const apiBase =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? "http://localhost:4000" : "/api");
     const isEditing = Boolean(editingUser);
 
     try {

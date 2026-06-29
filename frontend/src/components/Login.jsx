@@ -11,7 +11,9 @@ function Login() {
 
   useEffect(() => {
     let isMounted = true;
-    const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
+    const apiBase =
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.DEV ? "http://localhost:4000" : "/api");
 
     fetch(`${apiBase}/api/setup/status`)
       .then(async (response) => {

@@ -1,5 +1,7 @@
 export async function authenticate(username, password) {
-  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
+  const apiBase =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? "http://localhost:4000" : "/api");
   const url = `${apiBase}/api/auth/login`;
   const res = await fetch(url, {
     method: "POST",
