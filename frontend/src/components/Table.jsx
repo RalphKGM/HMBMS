@@ -25,8 +25,8 @@ function Table({ headers, rows }) {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse">
+      <div className="table-scroll overflow-x-auto">
+        <table className="responsive-table min-w-full border-collapse">
           <thead className="bg-slate-50">
             <tr>
               {headers.map((header) => (
@@ -43,11 +43,22 @@ function Table({ headers, rows }) {
             {visibleRows.length ? (
               visibleRows.map((row, index) => (
                 <tr key={`${startIndex}-${index}`} className="transition hover:bg-slate-50/80">
-                  {row.map((cell, cellIndex) => (
-                    <td key={cellIndex} className="px-4 py-3 align-top text-sm text-slate-700">
-                      {cell}
-                    </td>
-                  ))}
+                  {row.map((cell, cellIndex) => {
+                    const header = headers[cellIndex] || "";
+                    const isActionCell = header.toLowerCase().includes("action");
+
+                    return (
+                      <td
+                        key={cellIndex}
+                        data-label={header}
+                        className={`px-4 py-3 align-top text-sm text-slate-700 ${
+                          isActionCell ? "table-action-cell" : ""
+                        }`}
+                      >
+                        {cell}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))
             ) : (
