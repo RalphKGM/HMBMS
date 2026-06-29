@@ -25,9 +25,9 @@ function Table({ headers, rows }) {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="overflow-x-auto max-md:overflow-x-visible">
-        <table className="min-w-full border-collapse max-md:min-w-0">
-          <thead className="bg-slate-50 max-md:hidden">
+      <div className="hidden overflow-x-auto md:block">
+        <table className="min-w-full border-collapse">
+          <thead className="bg-slate-50">
             <tr>
               {headers.map((header) => (
                 <th
@@ -39,12 +39,12 @@ function Table({ headers, rows }) {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 max-md:grid max-md:gap-3 max-md:divide-y-0">
+          <tbody className="divide-y divide-slate-200">
             {visibleRows.length ? (
               visibleRows.map((row, index) => (
                 <tr
                   key={`${startIndex}-${index}`}
-                  className="transition hover:bg-slate-50/80 max-md:block max-md:w-full max-md:overflow-hidden max-md:rounded-xl max-md:border max-md:border-slate-200 max-md:bg-white"
+                  className="transition hover:bg-slate-50/80"
                 >
                   {row.map((cell, cellIndex) => {
                     const header = headers[cellIndex] || "";
@@ -53,11 +53,8 @@ function Table({ headers, rows }) {
                     return (
                       <td
                         key={cellIndex}
-                        data-label={header}
-                        className={`px-4 py-3 align-top text-sm text-slate-700 max-md:block max-md:w-full max-md:border-b max-md:border-slate-100 max-md:px-3 max-md:py-3 max-md:before:mb-1 max-md:before:block max-md:before:text-[0.72rem] max-md:before:font-bold max-md:before:uppercase max-md:before:tracking-[0.04em] max-md:before:text-slate-500 max-md:before:content-[attr(data-label)] last:max-md:border-b-0 ${
-                          isActionCell
-                            ? "whitespace-nowrap [&>*]:mr-1.5 [&>*:last-child]:mr-0 max-md:grid max-md:gap-2 max-md:whitespace-normal max-md:[&>*]:mr-0 max-md:[&>*]:w-full max-md:[&_button]:min-h-9"
-                            : ""
+                        className={`px-4 py-3 align-top text-sm text-slate-700 ${
+                          isActionCell ? "whitespace-nowrap [&>*]:mr-1.5 [&>*:last-child]:mr-0" : ""
                         }`}
                       >
                         {cell}
@@ -76,12 +73,51 @@ function Table({ headers, rows }) {
           </tbody>
         </table>
       </div>
+
+      <div className="grid gap-3 p-3 md:hidden">
+        {visibleRows.length ? (
+          visibleRows.map((row, rowIndex) => (
+            <article
+              key={`${startIndex}-${rowIndex}`}
+              className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+            >
+              {row.map((cell, cellIndex) => {
+                const header = headers[cellIndex] || "";
+                const isActionCell = header.toLowerCase().includes("action");
+
+                return (
+                  <div
+                    key={cellIndex}
+                    className="border-b border-slate-100 px-4 py-3 last:border-b-0"
+                  >
+                    <span className="mb-1 block text-[0.72rem] font-bold uppercase tracking-[0.04em] text-slate-500">
+                      {header}
+                    </span>
+                    <div
+                      className={`min-w-0 text-sm text-slate-800 ${
+                        isActionCell ? "grid gap-2 [&>*]:w-full [&_button]:min-h-9" : "break-words"
+                      }`}
+                    >
+                      {cell}
+                    </div>
+                  </div>
+                );
+              })}
+            </article>
+          ))
+        ) : (
+          <p className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-center text-slate-500">
+            No records found.
+          </p>
+        )}
+      </div>
+
       {rows.length > PAGE_SIZE && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3">
-          <p className="text-sm text-slate-600">
+        <div className="flex flex-col items-stretch gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-center text-sm text-slate-600 sm:text-left">
             Showing {showingStart}-{showingEnd} of {rows.length}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             <button
               type="button"
               className="min-h-0 px-3 py-1.5 text-xs"
