@@ -376,6 +376,7 @@ function Reports({ refreshKey = 0 }) {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="print:hidden">
         <div className="section-header mb-4">
           <div>
             <h3>{report.title}</h3>
@@ -402,8 +403,13 @@ function Reports({ refreshKey = 0 }) {
         {!report.rows.length && (
           <p className="message">No records for this view yet. Try Monthly or All Time.</p>
         )}
+        </div>
         <div className="print-table-only">
-          <Table headers={report.headers} rows={filteredReportRows} />
+          <div className="mb-4 border-b border-slate-200 pb-4">
+            <h3>{report.title}</h3>
+            <p className="mt-1 text-sm text-slate-600">{periodLabels[period]} time range</p>
+          </div>
+          <Table headers={report.headers} rows={filteredReportRows} paginate={false} />
         </div>
       </div>
     </section>

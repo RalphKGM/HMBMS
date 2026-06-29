@@ -136,6 +136,7 @@
   }
 
   .print-table-only {
+    display: block !important;
     position: absolute !important;
     inset: 0 auto auto 0 !important;
     width: 100% !important;
@@ -151,4 +152,8 @@
   .print-table-only .md\:hidden {
     display: none !important;
   }
+}
+
+.print-table-only {
+  display: none;
 }

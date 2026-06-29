@@ -2,26 +2,28 @@ import { useEffect, useMemo, useState } from "react";
 
 const PAGE_SIZE = 10;
 
-function Table({ headers, rows }) {
+function Table({ headers, rows, paginate = true }) {
   const [page, setPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const startIndex = (page - 1) * PAGE_SIZE;
   const visibleRows = useMemo(
-    () => rows.slice(startIndex, startIndex + PAGE_SIZE),
-    [rows, startIndex],
+    () => (paginate ? rows.slice(startIndex, startIndex + PAGE_SIZE) : rows),
+    [paginate, rows, startIndex],
   );
   const showingStart = rows.length ? startIndex + 1 : 0;
   const showingEnd = Math.min(startIndex + PAGE_SIZE, rows.length);
 
   useEffect(() => {
-    setPage(1);
-  }, [rows]);
+    if (paginate) {
+      setPage(1);
+    }
+  }, [paginate, rows]);
 
   useEffect(() => {
-    if (page > totalPages) {
+    if (paginate && page > totalPages) {
       setPage(totalPages);
     }
-  }, [page, totalPages]);
+  }, [paginate, page, totalPages]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -112,7 +114,7 @@ function Table({ headers, rows }) {
         )}
       </div>
 
-      {rows.length > PAGE_SIZE && (
+      {paginate && rows.length > PAGE_SIZE && (
         <div className="flex flex-col items-stretch gap-3 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-center text-sm text-slate-600 sm:text-left">
             Showing {showingStart}-{showingEnd} of {rows.length}
