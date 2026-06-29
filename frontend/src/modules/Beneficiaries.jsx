@@ -6,6 +6,7 @@ const initialForm = {
   firstName: "",
   lastName: "",
   contactNumber: "",
+  email: "",
   address: "",
 };
 
@@ -118,9 +119,9 @@ function Beneficiaries({ currentUser }) {
 
   const filteredBeneficiaries = useMemo(() => {
     return beneficiaries.filter((beneficiary) => {
-      const text = `${beneficiaryName(beneficiary)} ${beneficiary.contact_number} ${
-        beneficiary.address
-      } ${beneficiary.is_active ? "Active" : "Inactive"}`;
+      const text = `${beneficiaryName(beneficiary)} ${beneficiary.email || ""} ${
+        beneficiary.contact_number
+      } ${beneficiary.address} ${beneficiary.is_active ? "Active" : "Inactive"}`;
       return text.toLowerCase().includes(query.toLowerCase());
     });
   }, [beneficiaries, query]);
@@ -141,6 +142,7 @@ function Beneficiaries({ currentUser }) {
       <span key={`name-${beneficiary.beneficiary_id}`} className="font-semibold text-slate-900">
         {beneficiaryName(beneficiary)}
       </span>,
+      beneficiary.email || "-",
       beneficiary.contact_number,
       beneficiary.address,
       <span
@@ -354,6 +356,7 @@ function Beneficiaries({ currentUser }) {
       firstName: beneficiary.first_name || "",
       lastName: beneficiary.last_name || "",
       contactNumber: beneficiary.contact_number || "",
+      email: beneficiary.email || "",
       address: beneficiary.address || "",
     });
     setMessage("");
@@ -446,6 +449,15 @@ function Beneficiaries({ currentUser }) {
                   value={form.lastName}
                   onChange={(event) => setForm({ ...form, lastName: event.target.value })}
                   placeholder="Family name"
+                />
+              </label>
+              <label>
+                Email Address
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(event) => setForm({ ...form, email: event.target.value })}
+                  placeholder="name@example.com"
                 />
               </label>
               <label>
@@ -645,9 +657,9 @@ function Beneficiaries({ currentUser }) {
           />
         </label>
         <Table
-          headers={["Name", "Contact", "Address", "Status", "Actions"]}
-          rows={beneficiaryRows}
-        />
+        headers={["Name", "Email", "Contact", "Address", "Status", "Actions"]}
+        rows={beneficiaryRows}
+      />
       </div>
 
       {selectedBeneficiary && (

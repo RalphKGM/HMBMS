@@ -1,7 +1,7 @@
 import { supabase, isSupabaseConfigured } from "../lib/supabase.js";
 
 const beneficiarySelectColumns =
-  "beneficiary_id, first_name, last_name, contact_number, address, is_active, created_by, created_at, updated_at";
+  "beneficiary_id, first_name, last_name, contact_number, email, address, is_active, created_by, created_at, updated_at";
 
 const inquirySelectColumns =
   "inquiry_id, beneficiary_id, requested_volume_ml, inquiry_date, status, logged_by, created_at";
@@ -33,7 +33,7 @@ export const createBeneficiary = async (req, res) => {
     return res.status(500).json({ error: "Supabase not configured on server." });
   }
 
-  const { firstName, lastName, contactNumber, address, createdBy } = req.body || {};
+  const { firstName, lastName, contactNumber, email, address, createdBy } = req.body || {};
 
   if (!firstName || !lastName || !contactNumber || !address) {
     return res.status(400).json({
@@ -48,6 +48,7 @@ export const createBeneficiary = async (req, res) => {
         first_name: firstName,
         last_name: lastName,
         contact_number: contactNumber,
+        email: email || null,
         address,
         created_by: createdBy || null,
       })
@@ -71,7 +72,7 @@ export const updateBeneficiary = async (req, res) => {
   }
 
   const beneficiaryId = Number(req.params.beneficiaryId);
-  const { firstName, lastName, contactNumber, address } = req.body || {};
+  const { firstName, lastName, contactNumber, email, address } = req.body || {};
 
   if (!Number.isInteger(beneficiaryId)) {
     return res.status(400).json({ error: "Invalid beneficiary id." });
@@ -90,6 +91,7 @@ export const updateBeneficiary = async (req, res) => {
         first_name: firstName,
         last_name: lastName,
         contact_number: contactNumber,
+        email: email || null,
         address,
       })
       .eq("beneficiary_id", beneficiaryId)

@@ -10,8 +10,8 @@ import Inquiries from "./modules/Inquiries";
 import ManageUsers from "./modules/ManageUsers";
 import MilkRecords from "./modules/MilkRecords";
 import Pasteurization from "./modules/Pasteurization";
+import EmailLog from "./modules/EmailLog";
 import Reports from "./modules/Reports";
-import SmsLog from "./modules/SmsLog";
 
 const rolePages = {
   Admin: [
@@ -24,10 +24,10 @@ const rolePages = {
     "Disposal",
     "Dispensing",
     "Reports",
-    "SMS Log",
+    "Email Log",
     "Manage Users",
   ],
-  Doctor: ["Dashboard", "Beneficiaries", "Inquiries", "Dispensing", "Reports", "SMS Log"],
+  Doctor: ["Dashboard", "Beneficiaries", "Inquiries", "Dispensing", "Reports", "Email Log"],
   Nurse: [
     "Dashboard",
     "Donors",
@@ -38,7 +38,7 @@ const rolePages = {
     "Disposal",
     "Dispensing",
     "Reports",
-    "SMS Log",
+    "Email Log",
   ],
   Midwife: [
     "Dashboard",
@@ -48,7 +48,7 @@ const rolePages = {
     "Milk Records",
     "Dispensing",
     "Reports",
-    "SMS Log",
+    "Email Log",
   ],
 };
 
@@ -133,12 +133,12 @@ const navIcons = {
       <path d="M3 20h18" />
     </>
   ),
-  "SMS Log": (
+  "Email Log": (
     <>
-      <path d="M4 5h16v12H8l-4 4V5Z" />
-      <path d="M8 11h.01" />
-      <path d="M12 11h.01" />
-      <path d="M16 11h.01" />
+      <path d="M4 6h16v12H4V6Z" />
+      <path d="m4 8 8 5 8-5" />
+      <path d="M4 18l5-5" />
+      <path d="m20 18-5-5" />
     </>
   ),
   "Manage Users": (
@@ -227,8 +227,8 @@ function App() {
         return <Dispensing currentUser={currentUser} />;
       case "Reports":
         return <Reports />;
-      case "SMS Log":
-        return <SmsLog currentUser={currentUser} />;
+      case "Email Log":
+        return <EmailLog currentUser={currentUser} />;
       default:
         return null;
     }
