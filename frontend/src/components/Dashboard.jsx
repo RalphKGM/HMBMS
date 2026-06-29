@@ -100,10 +100,10 @@ function Dashboard({ refreshKey = 0 }) {
       )}
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard badge="+ Live" label="Total Milk in Stock" value={Number(summary.availableMilk).toLocaleString()} unit="mL" />
-        <MetricCard badge="Stable" label="Active Donors" value={summary.donorCount} />
-        <MetricCard badge={`+${summary.pendingInquiryCount}`} label="Beneficiaries" value={summary.beneficiaryCount} />
-        <MetricCard badge="Active" label="Pasteurization in Progress" value={summary.pasteurizationCount} unit="Batches" />
+        <MetricCard label="Total Milk in Stock" value={Number(summary.availableMilk).toLocaleString()} unit="mL" />
+        <MetricCard label="Active Donors" value={summary.donorCount} />
+        <MetricCard label="Beneficiaries" value={summary.beneficiaryCount} />
+        <MetricCard label="Pasteurization in Progress" value={summary.pasteurizationCount} unit="Batches" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(280px,0.82fr)_minmax(0,1.18fr)]">

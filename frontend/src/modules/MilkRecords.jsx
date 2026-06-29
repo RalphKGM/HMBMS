@@ -53,7 +53,7 @@ async function fetchMilkRecords(apiBase) {
   };
 }
 
-function MilkRecords({ currentUser, onDataChange }) {
+function MilkRecords({ currentUser, onDataChange, refreshKey = 0 }) {
   const [donors, setDonors] = useState([]);
   const [users, setUsers] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -115,7 +115,7 @@ function MilkRecords({ currentUser, onDataChange }) {
     return () => {
       isMounted = false;
     };
-  }, [apiBase]);
+  }, [apiBase, refreshKey]);
 
   const donorOptions = donors.filter((donor) => donor.status === "Active");
 
@@ -138,6 +138,11 @@ function MilkRecords({ currentUser, onDataChange }) {
         description: donor.dtn,
       })),
     [donorNames, donorOptions],
+  );
+
+  const activeDonorIds = useMemo(
+    () => new Set(donorOptions.map((donor) => String(donor.donor_id))),
+    [donorOptions],
   );
 
   const userNames = useMemo(() => {
@@ -235,6 +240,12 @@ function MilkRecords({ currentUser, onDataChange }) {
 
   const saveSingleCollection = async (event) => {
     event.preventDefault();
+
+    if (!activeDonorIds.has(String(singleForm.donorId))) {
+      setError("Select an active donor before saving a milk collection.");
+      return;
+    }
+
     setSaving(true);
     setError("");
     setMessage("");
@@ -307,6 +318,11 @@ function MilkRecords({ currentUser, onDataChange }) {
 
     if (!poolForm.donorId || !poolForm.volumeMl) {
       setError("Select a donor and enter a volume.");
+      return;
+    }
+
+    if (!activeDonorIds.has(String(poolForm.donorId))) {
+      setError("Select an active donor before adding a contribution.");
       return;
     }
 
@@ -463,7 +479,7 @@ function MilkRecords({ currentUser, onDataChange }) {
                 X
               </button>
             </div>
-            <form onSubmit={saveSingleCollection}>
+            <form className="collection-form" onSubmit={saveSingleCollection}>
               <SearchSelect
                 label="Donor"
                 required

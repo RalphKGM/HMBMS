@@ -349,7 +349,7 @@ function Donors({ currentUser }) {
                   placeholder="Phone number"
                 />
               </label>
-              <label>
+              <label className="sm:col-span-2 xl:col-span-3">
                 Address
                 <textarea
                   required

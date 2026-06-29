@@ -65,6 +65,38 @@ async function assertDailyLimitForContributors(contributors, collectionDate) {
   }
 }
 
+async function assertActiveDonorsForContributors(contributors) {
+  const donorIds = [...new Set(contributors.map((contributor) => contributor.donorId))];
+
+  if (!donorIds.length) {
+    throw new Error("At least one donor contribution is required.");
+  }
+
+  const { data: donors, error } = await supabase
+    .from("donors")
+    .select("donor_id, status")
+    .in("donor_id", donorIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const donorsById = (donors || []).reduce((lookup, donor) => {
+    lookup[Number(donor.donor_id)] = donor;
+    return lookup;
+  }, {});
+
+  const missingDonor = donorIds.find((donorId) => !donorsById[donorId]);
+  if (missingDonor) {
+    throw new Error("Selected donor record was not found.");
+  }
+
+  const inactiveDonor = donorIds.find((donorId) => donorsById[donorId]?.status !== "Active");
+  if (inactiveDonor) {
+    throw new Error("Inactive donors cannot be used for new milk collections.");
+  }
+}
+
 function validateContributorVolume(volume) {
   if (!Number.isFinite(volume) || volume <= 0) {
     return "Each donor contribution must be a positive number.";
@@ -188,6 +220,7 @@ export const createMilkCollection = async (req, res) => {
   }
 
   try {
+    await assertActiveDonorsForContributors(normalizedContributors);
     await assertDailyLimitForContributors(normalizedContributors, collectionDate);
 
     const totalVolume = normalizedContributors.reduce(
@@ -241,7 +274,13 @@ export const createMilkCollection = async (req, res) => {
       pasteurizationRecord,
     });
   } catch (err) {
-    if (err.message === "A donor cannot donate more than 800 mL in a single day.") {
+    if (
+      [
+        "A donor cannot donate more than 800 mL in a single day.",
+        "Inactive donors cannot be used for new milk collections.",
+        "Selected donor record was not found.",
+      ].includes(err.message)
+    ) {
       return res.status(400).json({ error: err.message });
     }
 
@@ -345,6 +384,7 @@ export const addContributorToPooledBatch = async (req, res) => {
       }
     }
 
+    await assertActiveDonorsForContributors([{ donorId: parsedDonorId, volumeMl: parsedVolume }]);
     await assertDailyLimitForContributors([{ donorId: parsedDonorId, volumeMl: parsedVolume }], collectionDate);
 
     const { data: collection, error: collectionError } = await supabase
@@ -383,7 +423,13 @@ export const addContributorToPooledBatch = async (req, res) => {
 
     return res.status(201).json({ batch: updatedBatch, collection });
   } catch (err) {
-    if (err.message === "A donor cannot donate more than 800 mL in a single day.") {
+    if (
+      [
+        "A donor cannot donate more than 800 mL in a single day.",
+        "Inactive donors cannot be used for new milk collections.",
+        "Selected donor record was not found.",
+      ].includes(err.message)
+    ) {
       return res.status(400).json({ error: err.message });
     }
 

@@ -15,7 +15,7 @@ async function fetchDisposalData(apiBase) {
   };
 }
 
-function Disposal() {
+function Disposal({ refreshKey = 0 }) {
   const [batches, setBatches] = useState([]);
   const [disposals, setDisposals] = useState([]);
   const [search, setSearch] = useState("");
@@ -46,7 +46,7 @@ function Disposal() {
     return () => {
       isMounted = false;
     };
-  }, [apiBase]);
+  }, [apiBase, refreshKey]);
 
   const batchNames = useMemo(() => {
     return batches.reduce((names, batch) => {

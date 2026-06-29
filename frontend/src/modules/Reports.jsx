@@ -402,7 +402,9 @@ function Reports({ refreshKey = 0 }) {
         {!report.rows.length && (
           <p className="message">No records for this view yet. Try Monthly or All Time.</p>
         )}
-        <Table headers={report.headers} rows={filteredReportRows} />
+        <div className="print-table-only">
+          <Table headers={report.headers} rows={filteredReportRows} />
+        </div>
       </div>
     </section>
   );

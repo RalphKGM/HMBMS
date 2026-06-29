@@ -195,6 +195,10 @@ function App() {
   const goToPage = (nextPage) => {
     setPage(nextPage);
     setIsMobileNavOpen(false);
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "auto" });
+      document.querySelector("[data-app-content]")?.scrollTo({ top: 0, behavior: "auto" });
+    });
   };
 
   const handleLogout = () => {
@@ -219,11 +223,17 @@ function App() {
       case "Inquiries":
         return <Inquiries />;
       case "Milk Records":
-        return <MilkRecords currentUser={currentUser} onDataChange={notifyDataChange} />;
+        return (
+          <MilkRecords
+            currentUser={currentUser}
+            onDataChange={notifyDataChange}
+            refreshKey={dataVersion}
+          />
+        );
       case "Pasteurization":
         return <Pasteurization currentUser={currentUser} onDataChange={notifyDataChange} refreshKey={dataVersion} />;
       case "Disposal":
-        return <Disposal />;
+        return <Disposal refreshKey={dataVersion} />;
       case "Dispensing":
         return <Dispensing currentUser={currentUser} />;
       case "Reports":
@@ -342,7 +352,7 @@ function App() {
         {renderNavigation({ showBrand: false })}
       </aside>
 
-      <div className="lg:pl-72">
+      <div className="lg:pl-72" data-app-content>
         <div className="px-4 py-5 sm:px-5 lg:px-7">
           <div className="mx-auto w-full max-w-[1120px]">
             {visiblePages.map((item) => (
