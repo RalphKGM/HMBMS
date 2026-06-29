@@ -15,7 +15,6 @@ import SmsLog from "./modules/SmsLog";
 
 const rolePages = {
   Admin: [
-    "Manage Users",
     "Dashboard",
     "Donors",
     "Beneficiaries",
@@ -26,6 +25,7 @@ const rolePages = {
     "Dispensing",
     "Reports",
     "SMS Log",
+    "Manage Users",
   ],
   Doctor: ["Dashboard", "Beneficiaries", "Inquiries", "Dispensing", "Reports", "SMS Log"],
   Nurse: [
@@ -54,6 +54,118 @@ const rolePages = {
 
 function getVisiblePages(role) {
   return rolePages[role] || rolePages.Midwife;
+}
+
+const navIcons = {
+  Dashboard: (
+    <>
+      <rect x="3" y="3" width="6" height="6" />
+      <rect x="15" y="3" width="6" height="6" />
+      <rect x="3" y="15" width="6" height="6" />
+      <rect x="15" y="15" width="6" height="6" />
+    </>
+  ),
+  Donors: (
+    <>
+      <path d="M16 11a4 4 0 1 0-8 0" />
+      <path d="M3 18c1.4-2.4 4-4 7-4s5.6 1.6 7 4" />
+      <path d="M18 8.5a3 3 0 0 1 0 5" />
+      <path d="M21 18c-.6-1.2-1.5-2.1-2.7-2.8" />
+      <path d="M6 8.5a3 3 0 0 0 0 5" />
+      <path d="M3 18c.6-1.2 1.5-2.1 2.7-2.8" />
+    </>
+  ),
+  Beneficiaries: (
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M9 10h.01" />
+      <path d="M15 10h.01" />
+      <path d="M9 14c.8 1 1.8 1.5 3 1.5S14.2 15 15 14" />
+    </>
+  ),
+  Inquiries: (
+    <>
+      <path d="M5 5h14v12H8l-3 3V5Z" />
+      <path d="M9 9h6" />
+      <path d="M9 13h4" />
+    </>
+  ),
+  "Milk Records": (
+    <>
+      <path d="M7 4h10" />
+      <path d="M8 7h8v13H8V7Z" />
+      <path d="M12 10v7" />
+      <path d="M9.5 13.5h5" />
+    </>
+  ),
+  Pasteurization: (
+    <>
+      <path d="M10 3h4" />
+      <path d="M11 3v6l-5 9a2 2 0 0 0 1.7 3h8.6a2 2 0 0 0 1.7-3l-5-9V3" />
+      <path d="M8.5 15h7" />
+    </>
+  ),
+  Disposal: (
+    <>
+      <path d="M6 7h12" />
+      <path d="M9 7V5h6v2" />
+      <path d="M8 10l1 10h6l1-10" />
+      <path d="M10.5 13v4" />
+      <path d="M13.5 13v4" />
+    </>
+  ),
+  Dispensing: (
+    <>
+      <path d="M7 8h7v13H7V8Z" />
+      <path d="M9 8V5h3v3" />
+      <path d="M17 3v18" />
+      <path d="M14 6h6" />
+      <path d="M14 14h6" />
+      <path d="M9.5 12h2" />
+      <path d="M10.5 11v2" />
+    </>
+  ),
+  Reports: (
+    <>
+      <path d="M5 20V9" />
+      <path d="M11 20V4" />
+      <path d="M17 20v-7" />
+      <path d="M3 20h18" />
+    </>
+  ),
+  "SMS Log": (
+    <>
+      <path d="M4 5h16v12H8l-4 4V5Z" />
+      <path d="M8 11h.01" />
+      <path d="M12 11h.01" />
+      <path d="M16 11h.01" />
+    </>
+  ),
+  "Manage Users": (
+    <>
+      <path d="M15 8a4 4 0 1 0-8 0" />
+      <path d="M4 20c1.2-3 3.6-5 7-5 1.2 0 2.3.3 3.2.8" />
+      <path d="M18 12v6" />
+      <path d="M15 15h6" />
+    </>
+  ),
+};
+
+function NavIcon({ page }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-5 w-5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
+      {navIcons[page] || navIcons.Dashboard}
+    </svg>
+  );
 }
 
 function App() {
@@ -92,8 +204,8 @@ function App() {
   const renderNavigation = ({ showBrand = true } = {}) => (
     <>
       {showBrand && (
-        <div className="px-7 pb-5 pt-6">
-          <h1 className="milklink-brand text-4xl font-semibold leading-tight tracking-normal text-[#003b90]">
+        <div className="px-7 pb-2 pt-5">
+          <h1 className="milklink-brand text-4xl font-bold leading-tight tracking-normal text-[#003b90]">
             MilkLink
           </h1>
         </div>
@@ -102,22 +214,24 @@ function App() {
       <nav className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-4">
         {visiblePages.map((item) => (
           <button
-            className={`flex min-h-12 w-full items-center rounded-lg px-5 text-left text-sm font-semibold tracking-wide transition ${
+            aria-current={activePage === item ? "page" : undefined}
+            className={`flex min-h-11 w-full items-center justify-start gap-4 rounded-lg border-0 px-4 py-2.5 text-left text-sm font-bold tracking-[0.04em] shadow-none transition-all duration-150 active:scale-[0.98] ${
               activePage === item
-                ? "bg-[#1d5bc4] text-white shadow-sm"
-                : "bg-transparent text-slate-800 hover:bg-white"
+                ? "bg-[#1d5bc4] text-white"
+                : "bg-transparent text-slate-700 hover:bg-[#dbe8ff] hover:text-[#003b90]"
             }`}
             key={item}
             onClick={() => goToPage(item)}
             type="button"
           >
-            {item}
+            <NavIcon page={item} />
+            <span className="flex-1 text-left">{item}</span>
           </button>
         ))}
       </nav>
 
-      <div className="border-t border-slate-300 px-5 py-5">
-        <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="border-t border-slate-300 px-5 py-4">
+        <div className="mb-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#1d5bc4] text-sm font-bold text-white">
               {initials}
@@ -132,7 +246,7 @@ function App() {
           </div>
         </div>
         <button
-          className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:border-slate-400"
+          className="flex min-h-11 w-full items-center justify-start rounded-xl border-0 bg-transparent px-3 py-2.5 text-left text-xs font-bold uppercase tracking-[0.05em] text-slate-600 transition-all duration-150 hover:bg-slate-200 active:scale-[0.98]"
           onClick={handleLogout}
           type="button"
         >
@@ -160,7 +274,7 @@ function App() {
           <span />
           <span />
         </button>
-        <span className="milklink-brand text-2xl font-bold text-[#003b90]">MilkLink</span>
+        <span className="milklink-brand text-2xl font-extrabold text-[#003b90]">MilkLink</span>
         <div className="grid h-10 w-10 place-items-center rounded-full bg-[#1d5bc4] text-xs font-bold text-white">
           {initials}
         </div>
