@@ -379,32 +379,34 @@ function Reports({ refreshKey = 0 }) {
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="print:hidden">
-        <div className="section-header mb-4">
-          <div>
-            <h3>{report.title}</h3>
-            <p className="mt-1 text-sm">
-              {periodLabels[period]} view. Search only affects the table below.
-            </p>
+          <div className="section-header mb-4">
+            <div>
+              <h3>{report.title}</h3>
+              <p className="mt-1 text-sm">
+                {periodLabels[period]} view. Search only affects the table below.
+              </p>
+            </div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+              {filteredReportRows.length} of {report.rows.length} {report.rows.length === 1 ? "record" : "records"}
+            </span>
           </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
-            {filteredReportRows.length} of {report.rows.length} {report.rows.length === 1 ? "record" : "records"}
-          </span>
-        </div>
 
-        <div className="mb-4 max-w-xs">
-          <label>
-            Search
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search current report"
-            />
-          </label>
-        </div>
+          <div className="mb-4 max-w-xs">
+            <label>
+              Search
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search current report"
+              />
+            </label>
+          </div>
 
-        {!report.rows.length && (
-          <p className="message">No records for this view yet. Try Monthly or All Time.</p>
-        )}
+          {!report.rows.length && (
+            <p className="message">No records for this view yet. Try Monthly or All Time.</p>
+          )}
+
+          {!!report.rows.length && <Table headers={report.headers} rows={filteredReportRows} />}
         </div>
         <div className="print-table-only">
           <div className="mb-4 border-b border-slate-200 pb-4">
