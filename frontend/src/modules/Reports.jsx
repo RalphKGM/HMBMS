@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Table from "../components/Table";
-import { fullName, money } from "../utils/helpers";
+import { fullName, money, resultPillClass, statusPillClass } from "../utils/helpers";
 
 const emptyReportData = {
   batches: [],
@@ -10,6 +10,8 @@ const emptyReportData = {
   pasteurizationRecords: [],
   transactions: [],
 };
+
+const pendingPostTestStatuses = ["Pending Post-Test", "Passed"];
 
 function startOfPeriod(range) {
   const now = new Date();
@@ -43,6 +45,27 @@ function isWithinRange(value, range) {
   return date >= start;
 }
 
+function cellSearchValue(cell) {
+  if (cell?.props?.children) return String(cell.props.children);
+  return String(cell ?? "");
+}
+
+function getPreTestDisplay(record, batch) {
+  if (record?.pre_test_result) return record.pre_test_result;
+  if (batch?.status === "Pending Lab") return "Pending Lab";
+  if (pendingPostTestStatuses.includes(batch?.status)) return "Pending Post-Test";
+  return batch?.status || "Pending Lab";
+}
+
+function getPostTestDisplay(record, batch) {
+  if (record?.post_test_result) return record.post_test_result;
+  if (record?.pre_test_result === "Failed") return "Failed";
+  if (batch?.status === "Disposed") return "Skipped";
+  if (pendingPostTestStatuses.includes(batch?.status)) return "Pending Post-Test";
+  if (batch?.status === "Pending Lab") return "Pending Lab";
+  return batch?.status || "Pending Lab";
+}
+
 async function fetchReportsData(apiBase) {
   const response = await fetch(`${apiBase}/api/reports`);
   const body = await response.json().catch(() => ({}));
@@ -66,6 +89,12 @@ function Reports() {
   const [error, setError] = useState("");
 
   const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
+  const statusPill = (value, classNameForValue = statusPillClass) => (
+    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${classNameForValue(value)}`}>
+      {value || "Not recorded"}
+    </span>
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -111,7 +140,12 @@ function Reports() {
       return items;
     }, {});
 
-    return { beneficiaryNames, donorNames, batchNames };
+    const batchesById = reportData.batches.reduce((items, batch) => {
+      items[batch.batch_id] = batch;
+      return items;
+    }, {});
+
+    return { beneficiaryNames, donorNames, batchNames, batchesById };
   }, [reportData.batches, reportData.beneficiaries, reportData.donors]);
 
   const filteredCollections = useMemo(
@@ -147,21 +181,27 @@ function Reports() {
         names.batchNames[collection.batch_id] || `Batch #${collection.batch_id}`,
         collection.collection_type,
         `${collection.volume_ml} mL`,
-        collection.status,
+        statusPill(collection.status),
       ]),
     },
     pasteurization: {
       title: "Pasteurization Report",
       subtitle: `Filtered by ${period}`,
       headers: ["Batch", "Pre-test", "Pre-test Date", "Post-test", "Post-test Date", "Expiration"],
-      rows: filteredPasteurization.map((record) => [
-        names.batchNames[record.batch_id] || `Batch #${record.batch_id}`,
-        record.pre_test_result,
-        record.pre_test_date,
-        record.post_test_result || "Not recorded",
-        record.post_test_date || "Not recorded",
-        record.expiration_date || "Not set",
-      ]),
+      rows: filteredPasteurization.map((record) => {
+        const batch = names.batchesById[record.batch_id];
+        const preTestResult = getPreTestDisplay(record, batch);
+        const postTestResult = getPostTestDisplay(record, batch);
+
+        return [
+          names.batchNames[record.batch_id] || `Batch #${record.batch_id}`,
+          statusPill(preTestResult, resultPillClass),
+          record.pre_test_date || "Not scheduled",
+          statusPill(postTestResult, resultPillClass),
+          record.post_test_date || (record.pre_test_result === "Failed" ? record.pre_test_date : "Not scheduled"),
+          record.expiration_date || "Not set",
+        ];
+      }),
     },
     dispensing: {
       title: "Dispensing Report",
@@ -252,7 +292,7 @@ function Reports() {
     if (!normalizedSearch) return report.rows;
 
     return report.rows.filter((row) =>
-      row.some((cell) => String(cell ?? "").toLowerCase().includes(normalizedSearch)),
+      row.some((cell) => cellSearchValue(cell).toLowerCase().includes(normalizedSearch)),
     );
   }, [report.rows, search]);
 

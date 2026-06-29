@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import SearchSelect from "../components/SearchSelect";
 import Table from "../components/Table";
-import { fullName, today } from "../utils/helpers";
+import { fullName, statusPillClass, today } from "../utils/helpers";
 
 const initialForm = {
   donorId: "",
@@ -367,7 +367,7 @@ function MilkRecords({ currentUser }) {
         userNames[collection.collected_by] || "Unknown",
         <span
           key={`status-${collection.collection_id}`}
-          className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600"
+          className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${statusPillClass(collection.status)}`}
         >
           {collection.status}
         </span>,
@@ -384,7 +384,7 @@ function MilkRecords({ currentUser }) {
       `${batch.available_volume} mL`,
       <span
         key={`status-${batch.batch_id}`}
-        className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700"
+        className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${statusPillClass(batch.status)}`}
       >
         {batch.status}
       </span>,

@@ -23,6 +23,63 @@ function disposalReason(preTestResult, postTestResult) {
   return null;
 }
 
+function latestRecordPerBatch(records = []) {
+  const latestRecords = new Map();
+
+  for (const record of records) {
+    if (!latestRecords.has(record.batch_id)) {
+      latestRecords.set(record.batch_id, record);
+    }
+  }
+
+  return Array.from(latestRecords.values());
+}
+
+async function saveRecordForBatch(batchId, values) {
+  const { data: existingRecords, error: existingError } = await supabase
+    .from("pasteurization_records")
+    .select("pasteurization_id")
+    .eq("batch_id", batchId)
+    .order("pasteurization_id", { ascending: false })
+    .limit(1);
+
+  if (existingError) {
+    throw new Error(existingError.message);
+  }
+
+  const existingRecordId = existingRecords?.[0]?.pasteurization_id;
+
+  if (existingRecordId) {
+    const { data, error } = await supabase
+      .from("pasteurization_records")
+      .update(values)
+      .eq("pasteurization_id", existingRecordId)
+      .select(recordSelectColumns)
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data;
+  }
+
+  const { data, error } = await supabase
+    .from("pasteurization_records")
+    .insert({
+      batch_id: batchId,
+      ...values,
+    })
+    .select(recordSelectColumns)
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
 export const listPasteurizationData = async (req, res) => {
   if (!isSupabaseConfigured || !supabase) {
     return res.status(500).json({ error: "Supabase not configured on server." });
@@ -54,7 +111,7 @@ export const listPasteurizationData = async (req, res) => {
 
     return res.json({
       batches: batches || [],
-      records: records || [],
+      records: latestRecordPerBatch(records),
       disposals: disposals || [],
     });
   } catch (err) {
@@ -93,12 +150,20 @@ export const savePasteurizationRecord = async (req, res) => {
     return res.status(400).json({ error: "postTestResult must be Passed or Failed." });
   }
 
-  if (postTestResult === "Passed" && !expirationDate) {
+  if (preTestResult === "Failed" && postTestResult === "Passed") {
+    return res.status(400).json({ error: "postTestResult cannot pass when preTestResult failed." });
+  }
+
+  const normalizedPostTestResult = preTestResult === "Failed" ? "Failed" : postTestResult;
+  const normalizedPostTestDate = normalizedPostTestResult ? postTestDate || preTestDate : null;
+  const normalizedExpirationDate = normalizedPostTestResult === "Passed" ? expirationDate : null;
+
+  if (normalizedPostTestResult === "Passed" && !normalizedExpirationDate) {
     return res.status(400).json({ error: "expirationDate is required when post-test passes." });
   }
 
   try {
-    const status = nextBatchStatus(preTestResult, postTestResult);
+    const status = nextBatchStatus(preTestResult, normalizedPostTestResult);
     const { data: batch, error: batchLookupError } = await supabase
       .from("milk_batches")
       .select(batchSelectColumns)
@@ -109,30 +174,21 @@ export const savePasteurizationRecord = async (req, res) => {
       return res.status(500).json({ error: batchLookupError.message });
     }
 
-    const { data: record, error: recordError } = await supabase
-      .from("pasteurization_records")
-      .insert({
-        batch_id: parsedBatchId,
-        pre_test_result: preTestResult,
-        pre_test_date: preTestDate,
-        post_test_result: postTestResult || null,
-        post_test_date: postTestResult ? postTestDate || preTestDate : null,
-        expiration_date: expirationDate || null,
-        recorded_by: recordedBy || null,
-      })
-      .select(recordSelectColumns)
-      .single();
-
-    if (recordError) {
-      return res.status(500).json({ error: recordError.message });
-    }
+    const record = await saveRecordForBatch(parsedBatchId, {
+      pre_test_result: preTestResult,
+      pre_test_date: preTestDate,
+      post_test_result: normalizedPostTestResult || null,
+      post_test_date: normalizedPostTestDate,
+      expiration_date: normalizedExpirationDate,
+      recorded_by: recordedBy || null,
+    });
 
     const { data: updatedBatch, error: batchUpdateError } = await supabase
       .from("milk_batches")
       .update({
         status,
         available_volume: status === "Available" ? batch.total_volume : batch.available_volume,
-        expiration_date: expirationDate || batch.expiration_date,
+        expiration_date: normalizedExpirationDate || batch.expiration_date,
       })
       .eq("batch_id", parsedBatchId)
       .select(batchSelectColumns)
@@ -152,13 +208,13 @@ export const savePasteurizationRecord = async (req, res) => {
     }
 
     let disposal = null;
-    const reason = disposalReason(preTestResult, postTestResult);
+    const reason = disposalReason(preTestResult, normalizedPostTestResult);
     if (reason) {
       const { data: disposalData, error: disposalError } = await supabase
         .from("disposal_records")
         .insert({
           batch_id: parsedBatchId,
-          disposal_date: postTestResult === "Failed" ? postTestDate || preTestDate : preTestDate,
+          disposal_date: normalizedPostTestResult === "Failed" ? normalizedPostTestDate : preTestDate,
           reason,
           disposed_by: recordedBy || null,
         })

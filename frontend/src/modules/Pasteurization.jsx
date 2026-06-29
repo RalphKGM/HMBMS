@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Table from "../components/Table";
-import { today } from "../utils/helpers";
+import { resultPillClass, statusPillClass, today } from "../utils/helpers";
 
 const resultOptions = ["Passed", "Failed"];
 const pendingPostTestStatuses = ["Pending Post-Test", "Passed"];
@@ -73,40 +73,25 @@ function Pasteurization({ currentUser }) {
   const batches = data.batches || [];
   const records = data.records || [];
 
-  const statusPillClass = (status) => {
-    if (status === "Available") return "bg-emerald-50 text-emerald-700";
-    if (status === "Disposed" || status === "Failed") return "bg-red-50 text-red-700";
-    if (pendingPostTestStatuses.includes(status)) return "bg-blue-50 text-blue-700";
-    return "bg-amber-50 text-amber-700";
-  };
-
   const displayBatchStatus = (status) => {
     if (status === "Passed") return "Pending Post-Test";
     return status || "Unknown";
   };
 
-  const resultPillClass = (result) => {
-    if (result === "Passed") return "bg-emerald-50 text-emerald-700";
-    if (result === "Failed") return "bg-red-50 text-red-700";
-    if (["Pending Lab", "Pending Post-Test", "Not started"].includes(result)) {
-      return "bg-amber-50 text-amber-700";
-    }
-    if (result === "Skipped") return "bg-slate-100 text-slate-600";
-    return "bg-slate-100 text-slate-600";
-  };
-
   const getPreTestDisplay = (record, batch) => {
     if (record?.pre_test_result) return record.pre_test_result;
     if (batch?.status === "Pending Lab") return "Pending Lab";
-    return "Not started";
+    if (pendingPostTestStatuses.includes(batch?.status)) return "Pending Post-Test";
+    return batch?.status || "Pending Lab";
   };
 
   const getPostTestDisplay = (record, batch) => {
     if (record?.post_test_result) return record.post_test_result;
-    if (record?.pre_test_result === "Failed" || batch?.status === "Disposed") return "Skipped";
+    if (record?.pre_test_result === "Failed") return "Failed";
+    if (batch?.status === "Disposed") return "Skipped";
     if (pendingPostTestStatuses.includes(batch?.status)) return "Pending Post-Test";
-    if (batch?.status === "Pending Lab") return "Not started";
-    return "Not started";
+    if (batch?.status === "Pending Lab") return "Pending Lab";
+    return batch?.status || "Pending Lab";
   };
 
   const getDateDisplay = (date, fallback = "Not scheduled") => {
@@ -163,9 +148,14 @@ function Pasteurization({ currentUser }) {
     const normalizedSearch = recordSearch.trim().toLowerCase();
 
     return records.filter((record) => {
+      const batch = batchById[record.batch_id];
       const batchName = batchNames[record.batch_id] || "";
+      const preTestDisplay = getPreTestDisplay(record, batch);
+      const postTestDisplay = getPostTestDisplay(record, batch);
       const searchableText = [
         batchName,
+        preTestDisplay,
+        postTestDisplay,
         record.pre_test_date,
         record.post_test_date,
         record.expiration_date,
@@ -182,7 +172,7 @@ function Pasteurization({ currentUser }) {
 
       return matchesSearch && matchesResult;
     });
-  }, [batchNames, recordResultFilter, recordSearch, records]);
+  }, [batchById, batchNames, recordResultFilter, recordSearch, records]);
 
   const pasteurizationStats = useMemo(
     () => [

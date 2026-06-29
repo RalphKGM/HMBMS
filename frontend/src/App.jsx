@@ -340,15 +340,7 @@ function App() {
       <div className="lg:pl-72">
         <div className="px-4 py-5 sm:px-5 lg:px-7">
           <div className="mx-auto w-full max-w-[1120px]">
-            {visiblePages.map((item) => (
-              <div
-                key={item}
-                className={activePage === item ? "block" : "hidden"}
-                aria-hidden={activePage === item ? undefined : true}
-              >
-                {renderPageContent(item)}
-              </div>
-            ))}
+            <div key={activePage}>{renderPageContent(activePage)}</div>
           </div>
         </div>
       </div>
