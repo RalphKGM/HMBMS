@@ -613,13 +613,18 @@ function Beneficiaries({ currentUser }) {
                   placeholder="Example: 240"
                 />
               </label>
-              <div className="flex flex-wrap justify-end gap-3">
-                <button type="button" onClick={closeInquiryModal} disabled={inquirySaving}>
+              <div className="flex flex-nowrap justify-end gap-3">
+                <button
+                  type="button"
+                  className="whitespace-nowrap"
+                  onClick={closeInquiryModal}
+                  disabled={inquirySaving}
+                >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
+                  className="min-w-[116px] whitespace-nowrap border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
                   disabled={inquirySaving}
                 >
                   {inquirySaving ? "Logging..." : "Log Inquiry"}
