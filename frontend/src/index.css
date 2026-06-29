@@ -11,6 +11,31 @@
     @apply m-0 bg-[#f4f7fb] font-sans text-slate-900;
   }
 
+  html {
+    scrollbar-color: #94a3b8 #e5e7eb;
+    scrollbar-width: thin;
+  }
+
+  *::-webkit-scrollbar {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: #e5e7eb;
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border: 2px solid #e5e7eb;
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+  }
+
   section {
     @apply flex flex-col gap-5;
   }

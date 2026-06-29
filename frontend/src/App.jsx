@@ -246,7 +246,7 @@ function App() {
           </div>
         </div>
         <button
-          className="flex min-h-11 w-full items-center justify-start rounded-xl border-0 bg-transparent px-3 py-2.5 text-left text-xs font-bold uppercase tracking-[0.05em] text-slate-600 transition-all duration-150 hover:bg-slate-200 active:scale-[0.98]"
+          className="flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-bold text-slate-700 shadow-sm transition-all duration-150 hover:border-[#1d5bc4] hover:bg-[#dbe8ff] hover:text-[#003b90] active:scale-[0.98]"
           onClick={handleLogout}
           type="button"
         >
