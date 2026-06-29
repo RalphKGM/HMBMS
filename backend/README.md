@@ -7,6 +7,8 @@ Setup
 ```
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_or_anon_key
+RESEND_API_KEY=your_resend_api_key
+RESEND_FROM_EMAIL=notifications@yourdomain.com
 PORT=4000
 ```
 

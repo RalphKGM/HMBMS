@@ -11,12 +11,17 @@ const requiredTables = [
   "milk_inquiries",
   "dispensing_transactions",
   "sms_logs",
+  "email_logs",
 ];
 
 const requiredColumnChecks = [
   {
     table: "milk_inquiries",
     columns: "inquiry_id, beneficiary_id, requested_volume_ml, inquiry_date, status, logged_by, created_at",
+  },
+  {
+    table: "beneficiaries",
+    columns: "beneficiary_id, first_name, last_name, contact_number, email, address, is_active, created_by, created_at, updated_at",
   },
 ];
 

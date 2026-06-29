@@ -41,6 +41,7 @@ insert into beneficiaries (
   first_name,
   last_name,
   contact_number,
+  email,
   address,
   is_active,
   created_by
@@ -50,6 +51,7 @@ values
     'Liza',
     'Torres',
     '09170001111',
+    'liza.torres@example.com',
     'Makati Medical Center',
     true,
     (select user_id from users where username = 'nurse')
@@ -58,6 +60,7 @@ values
     'Carla',
     'Mendoza',
     '09170002222',
+    'carla.mendoza@example.com',
     'Ospital ng Makati',
     true,
     (select user_id from users where username = 'midwife')

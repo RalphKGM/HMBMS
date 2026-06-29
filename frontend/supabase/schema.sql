@@ -78,6 +78,7 @@ create table if not exists beneficiaries (
   first_name varchar(100) not null,
   last_name varchar(100) not null,
   contact_number varchar(20) not null,
+  email varchar(255),
   address text not null,
   is_active boolean not null default true,
   created_by int references users(user_id) on delete set null,
@@ -117,6 +118,21 @@ create table if not exists sms_logs (
   created_at timestamp not null default now()
 );
 
+create table if not exists email_logs (
+  email_id serial primary key,
+  beneficiary_id int not null references beneficiaries(beneficiary_id) on delete cascade,
+  recipient_email varchar(255),
+  subject varchar(255) not null,
+  message text not null,
+  resend_id varchar(100),
+  error_message text,
+  sent_by int references users(user_id) on delete set null,
+  sent_at timestamp not null default now(),
+  delivery_status varchar(20) not null default 'Sent'
+    check (delivery_status in ('Sent', 'Failed')),
+  created_at timestamp not null default now()
+);
+
 alter table milk_batches drop constraint if exists milk_batches_status_check;
 alter table milk_batches add constraint milk_batches_status_check
   check (status in ('Pending Lab', 'Pending Post-Test', 'Passed', 'Failed', 'Disposed', 'Pasteurized', 'Available'));
@@ -146,6 +162,7 @@ create index if not exists idx_inquiries_status on milk_inquiries(status);
 create index if not exists idx_dispense_bene on dispensing_transactions(beneficiary_id);
 create index if not exists idx_dispense_batch on dispensing_transactions(batch_id);
 create index if not exists idx_sms_bene on sms_logs(beneficiary_id);
+create index if not exists idx_email_bene on email_logs(beneficiary_id);
 
 create or replace function update_updated_at_column()
 returns trigger as $$
