@@ -27,7 +27,7 @@ async function fetchPasteurizationData(apiBase) {
   };
 }
 
-function Pasteurization({ currentUser }) {
+function Pasteurization({ currentUser, onDataChange, refreshKey = 0 }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -68,7 +68,7 @@ function Pasteurization({ currentUser }) {
     return () => {
       mounted = false;
     };
-  }, [apiBase]);
+  }, [apiBase, refreshKey]);
 
   const batches = data.batches || [];
   const records = data.records || [];
@@ -195,14 +195,6 @@ function Pasteurization({ currentUser }) {
     [batches, workQueue.length],
   );
 
-  const refreshData = async () => {
-    const body = await fetchPasteurizationData(apiBase);
-    setData({
-      batches: body.batches || [],
-      records: body.records || [],
-    });
-  };
-
   const resetForm = () => {
     setForm(initialForm);
   };
@@ -270,7 +262,7 @@ function Pasteurization({ currentUser }) {
           : `Batch ${body.batch?.batch_number || selectedBatch?.batch_number || ""} passed pre-test.`,
       );
       closeDetails();
-      await refreshData();
+      onDataChange?.();
     } catch (saveError) {
       setError(saveError.message || "Failed to save pre-test.");
     } finally {
@@ -331,7 +323,7 @@ function Pasteurization({ currentUser }) {
           : `Batch ${body.batch?.batch_number || selectedBatch?.batch_number || ""} is now available.`,
       );
       closeDetails();
-      await refreshData();
+      onDataChange?.();
     } catch (saveError) {
       setError(saveError.message || "Failed to save pasteurization.");
     } finally {

@@ -31,7 +31,7 @@ function formatDateLabel(date = new Date()) {
   }).format(date);
 }
 
-function Dashboard() {
+function Dashboard({ refreshKey = 0 }) {
   const [summary, setSummary] = useState(emptySummary);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -57,7 +57,7 @@ function Dashboard() {
     return () => {
       isMounted = false;
     };
-  }, [apiBase]);
+  }, [apiBase, refreshKey]);
 
   const availableBatches = useMemo(() => summary.availableBatches || [], [summary.availableBatches]);
   const recentBatches = availableBatches.slice(0, 4);

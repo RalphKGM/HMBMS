@@ -171,6 +171,7 @@ function NavIcon({ page }) {
 function App() {
   const [page, setPage] = useState("Dashboard");
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [dataVersion, setDataVersion] = useState(0);
   const { currentUser, logout } = useAuth();
 
   const visiblePages = getVisiblePages(currentUser?.role);
@@ -201,12 +202,16 @@ function App() {
     logout();
   };
 
+  const notifyDataChange = () => {
+    setDataVersion((current) => current + 1);
+  };
+
   const renderPageContent = (pageName) => {
     switch (pageName) {
       case "Manage Users":
         return canManageUsers ? <ManageUsers /> : null;
       case "Dashboard":
-        return <Dashboard />;
+        return <Dashboard refreshKey={dataVersion} />;
       case "Donors":
         return <Donors currentUser={currentUser} />;
       case "Beneficiaries":
@@ -214,15 +219,15 @@ function App() {
       case "Inquiries":
         return <Inquiries />;
       case "Milk Records":
-        return <MilkRecords currentUser={currentUser} />;
+        return <MilkRecords currentUser={currentUser} onDataChange={notifyDataChange} />;
       case "Pasteurization":
-        return <Pasteurization currentUser={currentUser} />;
+        return <Pasteurization currentUser={currentUser} onDataChange={notifyDataChange} refreshKey={dataVersion} />;
       case "Disposal":
         return <Disposal />;
       case "Dispensing":
         return <Dispensing currentUser={currentUser} />;
       case "Reports":
-        return <Reports />;
+        return <Reports refreshKey={dataVersion} />;
       case "SMS Log":
         return <SmsLog currentUser={currentUser} />;
       default:
@@ -340,7 +345,15 @@ function App() {
       <div className="lg:pl-72">
         <div className="px-4 py-5 sm:px-5 lg:px-7">
           <div className="mx-auto w-full max-w-[1120px]">
-            <div key={activePage}>{renderPageContent(activePage)}</div>
+            {visiblePages.map((item) => (
+              <div
+                key={item}
+                className={activePage === item ? "block" : "hidden"}
+                aria-hidden={activePage === item ? undefined : true}
+              >
+                {renderPageContent(item)}
+              </div>
+            ))}
           </div>
         </div>
       </div>

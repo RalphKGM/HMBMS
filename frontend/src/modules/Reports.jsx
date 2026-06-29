@@ -80,7 +80,7 @@ async function fetchReportsData(apiBase) {
   };
 }
 
-function Reports() {
+function Reports({ refreshKey = 0 }) {
   const [reportType, setReportType] = useState("collection");
   const [period, setPeriod] = useState("month");
   const [search, setSearch] = useState("");
@@ -115,7 +115,7 @@ function Reports() {
     return () => {
       isMounted = false;
     };
-  }, [apiBase]);
+  }, [apiBase, refreshKey]);
 
   const names = useMemo(() => {
     const beneficiaryNames = reportData.beneficiaries.reduce((items, beneficiary) => {

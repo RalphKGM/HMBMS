@@ -53,7 +53,7 @@ async function fetchMilkRecords(apiBase) {
   };
 }
 
-function MilkRecords({ currentUser }) {
+function MilkRecords({ currentUser, onDataChange }) {
   const [donors, setDonors] = useState([]);
   const [users, setUsers] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -258,6 +258,7 @@ function MilkRecords({ currentUser }) {
       resetSingleForm();
       setShowSingleModal(false);
       await loadMilkRecords();
+      onDataChange?.();
     } catch (saveError) {
       setError(saveError.message || "Failed to save collection.");
     } finally {
@@ -290,6 +291,7 @@ function MilkRecords({ currentUser }) {
       setMessage(`Pooled batch ${body.batch.batch_number} created.`);
       resetPoolForm();
       await loadMilkRecords();
+      onDataChange?.();
     } catch (createError) {
       setError(createError.message || "Failed to create pooled batch.");
     } finally {
@@ -340,6 +342,7 @@ function MilkRecords({ currentUser }) {
         volumeMl: "",
       }));
       await loadMilkRecords();
+      onDataChange?.();
     } catch (addError) {
       setError(addError.message || "Failed to add donor contribution.");
     } finally {
