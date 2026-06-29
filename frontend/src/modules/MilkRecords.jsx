@@ -70,7 +70,9 @@ function MilkRecords({ currentUser, onDataChange, refreshKey = 0 }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const apiBase = import.meta.env.VITE_API_URL || "http://localhost:4000";
+  const apiBase =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? "http://localhost:4000" : "/api");
 
   const loadMilkRecords = async () => {
     setLoading(true);
