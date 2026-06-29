@@ -201,6 +201,35 @@ function App() {
     logout();
   };
 
+  const renderPageContent = (pageName) => {
+    switch (pageName) {
+      case "Manage Users":
+        return canManageUsers ? <ManageUsers /> : null;
+      case "Dashboard":
+        return <Dashboard />;
+      case "Donors":
+        return <Donors currentUser={currentUser} />;
+      case "Beneficiaries":
+        return <Beneficiaries currentUser={currentUser} />;
+      case "Inquiries":
+        return <Inquiries />;
+      case "Milk Records":
+        return <MilkRecords currentUser={currentUser} />;
+      case "Pasteurization":
+        return <Pasteurization currentUser={currentUser} />;
+      case "Disposal":
+        return <Disposal />;
+      case "Dispensing":
+        return <Dispensing currentUser={currentUser} />;
+      case "Reports":
+        return <Reports />;
+      case "SMS Log":
+        return <SmsLog currentUser={currentUser} />;
+      default:
+        return null;
+    }
+  };
+
   const renderNavigation = ({ showBrand = true } = {}) => (
     <>
       {showBrand && (
@@ -311,17 +340,15 @@ function App() {
       <div className="lg:pl-72">
         <div className="px-4 py-5 sm:px-5 lg:px-7">
           <div className="mx-auto w-full max-w-[1120px]">
-            {activePage === "Manage Users" && canManageUsers && <ManageUsers />}
-            {activePage === "Dashboard" && <Dashboard />}
-            {activePage === "Donors" && <Donors currentUser={currentUser} />}
-            {activePage === "Beneficiaries" && <Beneficiaries currentUser={currentUser} />}
-            {activePage === "Inquiries" && <Inquiries />}
-            {activePage === "Milk Records" && <MilkRecords currentUser={currentUser} />}
-            {activePage === "Pasteurization" && <Pasteurization currentUser={currentUser} />}
-            {activePage === "Disposal" && <Disposal />}
-            {activePage === "Dispensing" && <Dispensing currentUser={currentUser} />}
-            {activePage === "Reports" && <Reports />}
-            {activePage === "SMS Log" && <SmsLog currentUser={currentUser} />}
+            {visiblePages.map((item) => (
+              <div
+                key={item}
+                className={activePage === item ? "block" : "hidden"}
+                aria-hidden={activePage === item ? undefined : true}
+              >
+                {renderPageContent(item)}
+              </div>
+            ))}
           </div>
         </div>
       </div>
