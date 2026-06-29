@@ -25,9 +25,9 @@ function Table({ headers, rows }) {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="table-scroll overflow-x-auto">
-        <table className="responsive-table min-w-full border-collapse">
-          <thead className="bg-slate-50">
+      <div className="overflow-x-auto max-sm:overflow-x-visible">
+        <table className="min-w-full border-collapse max-sm:min-w-0">
+          <thead className="bg-slate-50 max-sm:hidden">
             <tr>
               {headers.map((header) => (
                 <th
@@ -39,10 +39,13 @@ function Table({ headers, rows }) {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200">
+          <tbody className="divide-y divide-slate-200 max-sm:grid max-sm:gap-3 max-sm:divide-y-0">
             {visibleRows.length ? (
               visibleRows.map((row, index) => (
-                <tr key={`${startIndex}-${index}`} className="transition hover:bg-slate-50/80">
+                <tr
+                  key={`${startIndex}-${index}`}
+                  className="transition hover:bg-slate-50/80 max-sm:block max-sm:w-full max-sm:overflow-hidden max-sm:rounded-xl max-sm:border max-sm:border-slate-200 max-sm:bg-white"
+                >
                   {row.map((cell, cellIndex) => {
                     const header = headers[cellIndex] || "";
                     const isActionCell = header.toLowerCase().includes("action");
@@ -51,8 +54,10 @@ function Table({ headers, rows }) {
                       <td
                         key={cellIndex}
                         data-label={header}
-                        className={`px-4 py-3 align-top text-sm text-slate-700 ${
-                          isActionCell ? "table-action-cell" : ""
+                        className={`px-4 py-3 align-top text-sm text-slate-700 max-sm:block max-sm:w-full max-sm:border-b max-sm:border-slate-100 max-sm:px-3 max-sm:py-3 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[0.72rem] max-sm:before:font-bold max-sm:before:uppercase max-sm:before:tracking-[0.04em] max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)] last:max-sm:border-b-0 ${
+                          isActionCell
+                            ? "whitespace-nowrap [&>*]:mr-1.5 [&>*:last-child]:mr-0 max-sm:grid max-sm:gap-2 max-sm:whitespace-normal max-sm:[&>*]:mr-0 max-sm:[&>*]:w-full max-sm:[&_button]:min-h-9"
+                            : ""
                         }`}
                       >
                         {cell}

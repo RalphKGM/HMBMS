@@ -323,7 +323,7 @@ function ManageUsers() {
 
             {formError && <p className="message mb-4">{formError}</p>}
 
-            <form className="user-form" onSubmit={handleSaveUser}>
+            <form onSubmit={handleSaveUser}>
               <label>
                 Username
                 <input
