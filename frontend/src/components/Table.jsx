@@ -25,9 +25,9 @@ function Table({ headers, rows }) {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="overflow-x-auto max-sm:overflow-x-visible">
-        <table className="min-w-full border-collapse max-sm:min-w-0">
-          <thead className="bg-slate-50 max-sm:hidden">
+      <div className="overflow-x-auto max-md:overflow-x-visible">
+        <table className="min-w-full border-collapse max-md:min-w-0">
+          <thead className="bg-slate-50 max-md:hidden">
             <tr>
               {headers.map((header) => (
                 <th
@@ -39,12 +39,12 @@ function Table({ headers, rows }) {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200 max-sm:grid max-sm:gap-3 max-sm:divide-y-0">
+          <tbody className="divide-y divide-slate-200 max-md:grid max-md:gap-3 max-md:divide-y-0">
             {visibleRows.length ? (
               visibleRows.map((row, index) => (
                 <tr
                   key={`${startIndex}-${index}`}
-                  className="transition hover:bg-slate-50/80 max-sm:block max-sm:w-full max-sm:overflow-hidden max-sm:rounded-xl max-sm:border max-sm:border-slate-200 max-sm:bg-white"
+                  className="transition hover:bg-slate-50/80 max-md:block max-md:w-full max-md:overflow-hidden max-md:rounded-xl max-md:border max-md:border-slate-200 max-md:bg-white"
                 >
                   {row.map((cell, cellIndex) => {
                     const header = headers[cellIndex] || "";
@@ -54,9 +54,9 @@ function Table({ headers, rows }) {
                       <td
                         key={cellIndex}
                         data-label={header}
-                        className={`px-4 py-3 align-top text-sm text-slate-700 max-sm:block max-sm:w-full max-sm:border-b max-sm:border-slate-100 max-sm:px-3 max-sm:py-3 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[0.72rem] max-sm:before:font-bold max-sm:before:uppercase max-sm:before:tracking-[0.04em] max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)] last:max-sm:border-b-0 ${
+                        className={`px-4 py-3 align-top text-sm text-slate-700 max-md:block max-md:w-full max-md:border-b max-md:border-slate-100 max-md:px-3 max-md:py-3 max-md:before:mb-1 max-md:before:block max-md:before:text-[0.72rem] max-md:before:font-bold max-md:before:uppercase max-md:before:tracking-[0.04em] max-md:before:text-slate-500 max-md:before:content-[attr(data-label)] last:max-md:border-b-0 ${
                           isActionCell
-                            ? "whitespace-nowrap [&>*]:mr-1.5 [&>*:last-child]:mr-0 max-sm:grid max-sm:gap-2 max-sm:whitespace-normal max-sm:[&>*]:mr-0 max-sm:[&>*]:w-full max-sm:[&_button]:min-h-9"
+                            ? "whitespace-nowrap [&>*]:mr-1.5 [&>*:last-child]:mr-0 max-md:grid max-md:gap-2 max-md:whitespace-normal max-md:[&>*]:mr-0 max-md:[&>*]:w-full max-md:[&_button]:min-h-9"
                             : ""
                         }`}
                       >

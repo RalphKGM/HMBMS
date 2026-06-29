@@ -265,14 +265,14 @@ function App() {
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur lg:hidden">
         <button
           type="button"
-          className="mobile-nav-button"
+          className="flex h-11 w-11 shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-300 bg-white p-0 shadow-sm transition-colors hover:border-[#1d5bc4] hover:bg-[#dbe8ff]"
           onClick={() => setIsMobileNavOpen(true)}
           aria-label="Open navigation"
           aria-expanded={isMobileNavOpen}
         >
-          <span />
-          <span />
-          <span />
+          <span className="block h-0.5 w-5 rounded-full bg-[#1d5bc4]" />
+          <span className="block h-0.5 w-5 rounded-full bg-[#1d5bc4]" />
+          <span className="block h-0.5 w-5 rounded-full bg-[#1d5bc4]" />
         </button>
         <span className="milklink-brand text-2xl font-extrabold text-[#003b90]">MilkLink</span>
         <div className="grid h-10 w-10 place-items-center rounded-full bg-[#1d5bc4] text-xs font-bold text-white">
